@@ -1,7 +1,7 @@
 ### dense model
 
 from keras import Model
-from keras.layers import Dense, Dropout, BatchNormalization, Embedding, Multiply,Activation, Reshape, Concatenate, Lambda, Input, Flatten
+from keras.layers import Dense, Dropout, BatchNormalization, Embedding, Multiply,Activation, Reshape, Concatenate, Lambda, Input, Flatten, Add
 
 from keras.utils import plot_model
 
@@ -15,284 +15,250 @@ import tensorflow as tf
 from keras import backend as K
 from keras.callbacks import EarlyStopping
 from collections import defaultdict
-from keras.constraints import MaxNorm
+from keras.constraints import MaxNorm, UnitNorm
 from tqdm import tqdm
 import pandas as pd
+from keras.layers.advanced_activations import LeakyReLU
+from keras.regularizers import l2,l1,l1_l2
+from tqdm import tqdm
 
+from keras.optimizers import Adam
 
-def circ(s,o):
-    s,o = tf.cast(s, dtype=tf.complex128),tf.cast(o,dtype=tf.complex128)
-    return tf.real(tf.spectral.ifft(tf.conj(tf.spectral.fft(s))*tf.spectral.fft(o)))
 
 def circular_cross_correlation(x, y):
     """Periodic correlation, implemented using the FFT.
     x and y must be of the same length.
     """
-    return tf.real(tf.ifft(tf.multiply(tf.conj(tf.fft(tf.cast(x, tf.complex64))) , tf.fft(tf.cast(y, tf.complex64)))))
+    return tf.real(tf.signal.ifft(tf.multiply(tf.math.conj(tf.signal.fft(tf.cast(x, tf.complex64))) , tf.signal.fft(tf.cast(y, tf.complex64)))))
 
 def HolE(s,p,o):
     # sigm(p^T (s \star o))
     # dot product in tf: sum(multiply(a, b) axis = 1)
-    return tf.reduce_sum(tf.multiply(p, circular_cross_correlation(s, o)), axis = 1)
+    score = tf.reduce_sum(tf.multiply(p, circular_cross_correlation(s, o)), axis = -1)
+    score = Activation('sigmoid', name='score')(score)
+    return score
 
 def TransE(s,p,o):
-    return 1/tf.norm(s+p-o, axis = 1)
-
-
-class LinkPredict(Model):
-
-    def __init__(self,input_dim, embedding_dim = 128, use_bn=False, use_dp=False, embedding_method = 'DistMult'):
-        super(LinkPredict, self).__init__(name='lp')
-        self.use_bn = use_bn
-        self.use_dp = use_dp
-        
-        if embedding_method == 'HolE':
-            constraint = MaxNorm(1,axis=1)
-        elif embedding_method == 'TransE':
-            constraint = None
-        elif embedding_method == 'DistMult':
-            constraint = MaxNorm(1,axis=1)
-        
-        self.e = Embedding(input_dim[0],embedding_dim,embeddings_constraint=constraint)
-        self.r = Embedding(input_dim[1],embedding_dim)
-        
-        if embedding_method == 'DistMult':
-            self.embedding = [Multiply(),
-                            Lambda(lambda x: K.sum(x, axis=-1)),
-                            Activation('sigmoid'),
-                            Reshape((1,))]
-        elif embedding_method == 'HolE':
-            self.embedding = [Lambda(lambda x: HolE(x[0],x[1],x[2])),
-                            Activation('sigmoid'),
-                            Reshape((1,))]
-        elif embedding_method == 'TransE':
-            self.embedding = [Lambda(lambda x: TransE(x[0],x[1],x[2])),
-                              Activation('tanh'),
-                              Reshape((1,))]
-            
-        else:
-            raise NotImplementedError(embedding_method+' not implemented')
-        
-        self.rate = 0.2
-        
-        self.ls = [Dense(32, activation = 'relu'),
-                   Dropout(self.rate),
-                   Dense(1, activation='sigmoid'),
-                   Reshape((1,))]
+    score = Add()([s,p,-o])
+    score = tf.norm(score,axis=-1)
+    return Activation('tanh', name='score')(1/score)
     
-        if self.use_dp:
-            self.dp = Dropout(self.rate)
-            
-        if self.use_bn:
-            self.bn1 = BatchNormalization(axis=-1)
-            self.bn2 = BatchNormalization(axis=-1)
-            
+def DistMult(s,p,o):
+    score = Multiply()([s,p,o])
+    score = Lambda(lambda x: K.sum(x, axis=-1))(score)
+    return Activation('sigmoid', name='score')(score)
 
-    def call(self, inputs):
-        # triple, chemical
-        t,x = inputs
-        
-        s,p,o = t[:,0],t[:,1],t[:,2]
-        
-        s = self.e(s)
-        p = self.r(p)
-        o = self.e(o)
-        
-        x = self.e(x)
-        
-        if self.use_dp:
-            s = self.dp(s)
-            p = self.dp(p)
-            o = self.dp(o)
 
-        if self.use_bn:
-            s = self.bn1(s)
-            p = self.bn1(p)
-            o = self.bn1(o)
+
+def recall(y_true, y_pred):
+    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+    possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
+    r = true_positives / (possible_positives + K.epsilon())
+    return r
+
+def precision(y_true, y_pred):
+    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+    predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
+    p = true_positives / (predicted_positives + K.epsilon())
+    return p
+
+def f1(y_true, y_pred):
+    p = precision(y_true, y_pred)
+    r = recall(y_true, y_pred)
+    return 2*((p*r)/(p+r+K.epsilon()))
+
+def r2_keras(y_true, y_pred):
+    SS_res =  K.sum(K.square(y_true - y_pred)) 
+    SS_tot = K.sum(K.square(y_true - K.mean(y_true))) 
+    return ( 1 - SS_res/(SS_tot + K.epsilon()) )
+
+def generate_negative(kg, N, negative = 2, check_kg = False):
+    #false triples:
+    true_kg = kg.copy()
+    kg = []
+    kgl = []
+    for s,p,o in true_kg:
+        kg.append((s,p,o))
+        kgl.append(1)
+        for _ in range(negative):
+            t = (choice(range(N)), p, choice(range(N)))
+            if check_kg and not t in true_kg:
+                kg.append(t)
+                kgl.append(0)
             
-        score = [s,p,o]
-        
-        for layer in self.embedding:
-            score = layer(score)
-        
-        for layer in self.ls:
-            x = layer(x)
-        
-        return score,x
+    return kg, kgl
     
+def balance_inputs(input1, input1l, input2, input2l):
+    input1 = list(input1)
+    input2 = list(input2)
+    input1l = list(input1l)
+    input2l = list(input2l)
+    
+    while len(input1) != len(input2):
+        if len(input1) < len(input2):
+            idx = choice(range(len(input1)))
+            input1.append(input1[idx])
+            input1l.append(input1l[idx])
+            
+        if len(input1) > len(input2):
+            idx = choice(range(len(input2)))
+            input2.append(input2[idx])
+            input2l.append(input2l[idx])
+            
+    return input1, input1l, input2, input2l
 
-def main(cv=False, verbose=2, file_number = 0, repeat = 0, ed=200):
-    """
-    cv: do cross validation.
-    verbose: 0=silent, 1=batch, 2=epoch 
-    file_number: file name results.
-    repeat: repeat dataset if memory allows. Will reduce number of epochs.
-    """
+def create_kg_model(N, M, ed, dense_layers = (16,16)):
+    #kge model
+    #embedding
+    si,pi,oi = Input((1,)), Input((1,)), Input((1,))
+    e = Embedding(N, ed, embeddings_constraint=MaxNorm(axis=1), name='entity_embedding')
+    r = Embedding(M, ed, name='relation_embedding')
+    s = Dropout(0.2)(e(si))
+    p = Dropout(0.2)(r(pi))
+    o = Dropout(0.2)(e(oi))
+    score = DistMult(s,p,o)
+    
+    #regression
+    xi = Input((1,))
+    x = Lambda(lambda x: K.squeeze(x, 1))(e(xi))
+    for f in dense_layers:
+        x = Dense(f,activation=LeakyReLU(0.1))(x)
+        x = Dropout(0.2)(x)
+    x = Dense(1,activation='sigmoid', name='x')(x)
+    
+    return Model(inputs=[si,pi,oi,xi], outputs=[score,x])
 
-    Cg = read_data('./kg/chemical_graph.txt')
-    Cg = pd.read_csv('./kg/kg.csv').dropna()
-    Cg = list(zip(Cg['s'],Cg['p'],Cg['o']))
+def create_on_model(N, ed, dense_layers = (16,16)):
+    #one-hot model
+    #embedding
+    e = Embedding(N, ed, embeddings_constraint=MaxNorm(axis=1),name='entity_embedding')
+    
+    #regression
+    xi = Input((1,))
+    x = Lambda(lambda x: K.squeeze(x, 1))(e(xi))
+    for f in dense_layers:
+        x = Dense(f,activation=LeakyReLU(0.1))(x)
+        x = Dropout(0.2)(x)
+    x = Dense(1,activation='sigmoid', name='x')(x)
+    
+    return Model(inputs=xi, outputs=x)
+
+def main():
+    
+    kg = pd.read_csv('./kg/kg_chebi.csv')
+    kg = list(zip(kg['s'],kg['p'],kg['o']))
+    entities = set([s for s,p,o in kg]) | set([o for s,p,o in kg])
+    relations = set([p for s,p,o in kg])
+    
     dftr = pd.read_csv('./data/LC50_train.csv').dropna()
     dfte = pd.read_csv('./data/LC50_test.csv').dropna()
-    Xtr,ytr = dftr['inchikey'], np.asarray(dftr['y']).reshape((-1,1))
-    Xte,yte = dfte['inchikey'], np.asarray(dfte['y']).reshape((-1,1))
-
-    C = set.union(*[set([a,b]) for a,_,b in Cg]) | set(Xtr) | set(Xte)
-    Rc = set([r for _,r,_ in Cg])
+    Xtr,ytr = list(dftr['inchikey']), list(dftr['y'])
+    Xte,yte = list(dfte['inchikey']), list(dfte['y'])
     
-    N, Nr = len(C), len(Rc)
-
-    mapping_c = {c:i for c,i in zip(C,range(len(C)))}
-    mapping_cr = {c:i for c,i in zip(Rc,range(len(Rc)))}
+    tr = [(x,y) for x,y in zip(Xtr,ytr) if x in entities]
+    te = [(x,y) for x,y in zip(Xte,yte) if x in entities]
     
-    #scaling and transforming continuous labels to binary.
+    Xtr,ytr = zip(*tr)
+    Xte,yte = zip(*te)
+    Xtr, ytr = list(Xtr), np.asarray(ytr).reshape((-1,1))
+    Xte, yte = list(Xte), np.asarray(yte).reshape((-1,1))
+    
+    #convert to binary
     scaler = MinMaxScaler()
-    Xtr = [mapping_c[c] for c in Xtr]
-    ytr = np.around(scaler.fit_transform(ytr))
-    Xte = np.asarray([mapping_c[c] for c in Xte]).reshape((-1,1))
-    yte = np.around(scaler.transform(yte)).reshape((-1,))
+    ytr = scaler.fit_transform(ytr)
+    yte = scaler.transform(yte)
+    ytr = np.around(ytr-np.median(ytr)+0.5)
+    yte = np.around(yte-np.median(yte)+0.5)
     
-    num_false = 10
-
-    triples = []
-    triple_labels = []
+    ytr = list(ytr.reshape((-1,)))
+    yte = list(yte.reshape((-1,)))
     
-    C, Rc = list(C),list(Rc)
-
-    for s,p,o in Cg:
-        triples.append((mapping_c[s],mapping_cr[p],mapping_c[o]))
-        triple_labels.append(1)
+    l1 = len((set(Xtr) | set(Xte)) - entities)
+    print('Proportion of entites missing in KG:',l1/len(set(Xtr) | set(Xte)))
+    
+    entities = list(entities)
+    relations = list(relations)
+    
+    me = {e:i for i,e in enumerate(entities)}
+    mr = {e:i for i,e in enumerate(relations)}
+    
+    #mapping 
+    true_kg = [(me[s],mr[p],me[o]) for s,p,o in kg]
+    Xtr = [me[s] for s in Xtr]
+    Xte = [me[s] for s in Xte]
+    
+    #modelling
+    N = len(entities)
+    M = len(relations)
+    ed = 64
+    
+    kg_model = create_kg_model(N,M,ed)
+    on_model = create_on_model(N,ed)
+    
+    metrics = {'score':['acc',precision,recall,f1]}#,'x':['mae','mse',r2_keras]}
+    metrics['x'] = metrics['score']
+    epochs = 100
+    
+    kg_model.compile(optimizer=Adam(lr=1e-3, decay=1e-3 / epochs), metrics=metrics,loss={'score':'binary_crossentropy','x':'binary_crossentropy'}, loss_weights={'score':1,'x':0.5})
+    kg_model.summary()
+    
+    on_model.compile(optimizer=Adam(lr=1e-3, decay=1e-3 / epochs), metrics=metrics,loss={'x':'binary_crossentropy'}, loss_weights={'x':1})
+    on_model.summary()
+    
+    for i in tqdm(range(epochs)):
+        kg, kgl = generate_negative(true_kg, N, negative = 4, check_kg = False)
+        kg, kgl, tmpXtr, tmpytr = balance_inputs(kg,kgl,Xtr,ytr)
+    
+        X1 = np.asarray(kg)
+        y1 = np.asarray(kgl).reshape((-1,))
+        X2 = np.asarray(tmpXtr)
+        y2 = np.asarray(tmpytr).reshape((-1,))
         
-        for _ in range(num_false):
-            triples.append((mapping_c[choice(C)],mapping_cr[p],mapping_c[choice(C)]))
-            triple_labels.append(0)
-
-    #Oversampling training
-    Xtr,ytr = list(Xtr), list(ytr)
-    u,c = np.unique(ytr, return_counts=True)
-    while c[0] != c[1]:
-        idx = np.random.choice(len(ytr))
-        if ytr[idx] == u[np.argmin(c)]:
-            ytr.append(ytr[idx])
-            Xtr.append(Xtr[idx])
-        u,c = np.unique(ytr, return_counts=True)
-    
-    triples, Xtr = np.asarray(triples),np.asarray(Xtr).reshape((-1,1))
-    triple_labels, ytr = np.asarray(triple_labels).reshape((-1,)), np.asarray(ytr).reshape((-1,))
-
-    # Equal length inputs
-    if not cv:
-        r = np.ceil(len(triples)/len(Xtr))
-        if r > 1:
-            Xtr = np.repeat(Xtr, r, axis=0)
-            ytr = np.repeat(ytr, r, axis=0)
-            Xtr = Xtr[:len(triples)]
-            ytr = ytr[:len(triples)]
-        else:
-            triples = triples[:len(Xtr)]
-            triple_labels = triple_labels[:len(Xtr)]
-            
-
-    losses = {"output_1": "binary_crossentropy",
-            "output_2": "binary_crossentropy"
-                }
-    lW = {}
-    lW['DistMult'] = {"output_1": 0.5, "output_2": 1.0}
-    lW['HolE'] = {"output_1": 0.5, "output_2": 1.0}
-    lW['TransE'] = {"output_1": 1.0, "output_2": 1.0}
-    
-    num_epochs = 100
-    metrics = ['accuracy', keras_precision, keras_recall, keras_auc, keras_f1]
-    callbacks = [EarlyStopping(monitor='output_2_loss', mode='min', patience=5, restore_best_weights=True)]
-    results = {}
-
-    for mode in ['TransE','DistMult','HolE']:
-        lossWeights = lW[mode]
+        inputs = [X1[:,0], X1[:,1], X1[:,2], X2]
+        outputs = [y1, y2]
         
-        if cv:
-            kfold = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)
-            cvscores = []
-            with tqdm(total=10,desc='CV '+mode) as pbar:
-                for train,test in kfold.split(Xtr,ytr):
-                    model = LinkPredict(input_dim=[N,Nr], embedding_dim=ed, use_bn=True,use_dp=True, embedding_method=mode)
-                    # Compile model
-                    
-                    model.compile(loss=losses, loss_weights=lossWeights, optimizer='adagrad', metrics=metrics, callbacks=callbacks)
-                    # Fit the model
-                    
-                    x = Xtr[train]
-                    y = ytr[train]
-                    
-                    tmpx = triples
-                    tmpy = triple_labels
-                    
-                    m = max(len(tmpy),len(y))
-                    while min(len(tmpy),len(y)) != m:
-                        if len(tmpy) < m:
-                            idx = np.random.choice(len(tmpy))
-                            tmpx = np.concatenate((tmpx,tmpx[idx].reshape((1,3))),axis=0)
-                            tmpy = np.append(tmpy,tmpy[idx])
-                        if len(y) < m:
-                            idx = np.random.choice(len(y))
-                            x = np.append(x,x[idx])
-                            y = np.append(y,y[idx])
-                    
-                    
-                    x = x.reshape((-1,1))
+        if i/epochs > 0.75:
+            kg_model.get_layer('entity_embedding').trainable=False
+            kg_model.get_layer('relation_embedding').trainable=False
+            on_model.get_layer('entity_embedding').trainable=False
+            
+        # train the model
+        kg_model.fit(
+            inputs, outputs,
+            epochs=1, batch_size=2**11, verbose=1)
+        
+        on_model.fit(
+            X2, y2,
+            epochs=1, batch_size=2**11, verbose=1)
     
-                    model.fit([tmpx,x], [tmpy,y], epochs=num_epochs, batch_size=200, verbose=verbose, validation_split=0.0, shuffle=True)
-                    
-                    # evaluate the model
-                    
-                    scores = model.evaluate([triples[test],Xtr[test]], [triple_labels[test],ytr[test]], verbose=0, batch_size=len(ytr[test]))
-                    
-                    cvscores.append(scores)
-                    
-                    pbar.update(1)
-            cvscores = np.asarray(cvscores)
-            for i,n in enumerate(model.metrics_names):
-                print(mode,n,"%.2f (+/- %.2f)" % (np.mean(cvscores[:,i]), np.std(cvscores[:,i])))
-        
-        else:
-            model = LinkPredict(input_dim=[N,Nr], embedding_dim=ed, use_bn=True,use_dp=True, embedding_method=mode)
-            model.compile('adagrad', loss=losses, loss_weights=lossWeights, metrics=metrics)
-            
-            bs = 1024
-            
-            model.fit([triples, Xtr],[triple_labels, ytr], epochs = num_epochs, shuffle=True, verbose=verbose, callbacks=callbacks, batch_size = bs,validation_split=0.0)
+    
+    X1 = np.asarray(kg[:len(yte)])
+    y1 = np.asarray(kgl[:len(yte)]).reshape((-1,))
+    X2 = np.asarray(Xte)
+    y2 = np.asarray(yte).reshape((-1,))
+    
+    inputs = [X1[:,0], X1[:,1], X1[:,2], X2]
+    outputs = [y1, y2]
+    
+    e1 = kg_model.evaluate(inputs, outputs, batch_size=2**11)
+    e2 = on_model.evaluate(X2, y2, batch_size=2**11)
 
-            r1 = model.evaluate([triples[:len(Xte)],Xte],[triple_labels[:len(yte)],yte], batch_size=200,verbose=0)
-            results[mode] = r1
-            
-            if verbose in [1,2]:
-                m = model.evaluate([triples[:len(Xte)],Xte],[triple_labels[:len(yte)],yte], batch_size=200,verbose=verbose)
-                for a,b in zip(m,model.metrics_names):
-                    print(b,a)
-            
-            p = model.predict([triples[:len(Xte)],Xte])[-1]
-            with open('./results/LP/'+mode+'/'+str(file_number)+'.txt', 'w') as f:
-                for a,b in zip(yte,p):
-                    f.write(str(a)+','+str(b[-1])+'\n')
+    d = defaultdict(list)
+    
+    for n,v in zip(kg_model.metrics_names,e1):
+        d[n].append(v)
+    for n,v in zip(on_model.metrics_names,e2):
+        d['x_'+n].append(v)
         
-    return model, results
+    for k in d:
+        print(k,d[k])
+        
+    tmp = list(np.unique(yte,return_counts=True)[-1]/len(yte))
+    print('Prior', max(tmp))
 
 if __name__ == '__main__':
-    main(cv=False,verbose=2,repeat=0,ed=16)
-    #main(cv=True,verbose=0,repeat=0,ed=200)
-    exit()
-    num = 10
-    cvscores = defaultdict(list)
-    for i in tqdm(range(num)):
-        model, scores = main(cv=False, verbose=0, file_number=i, repeat = 0)
-        for k in scores:
-            cvscores[k].append(scores[k])
-        
-    for k in cvscores:
-        scores = np.asarray(cvscores[k])
-        for i,n in enumerate(model.metrics_names):
-            print(k, n,"%.2f (+/- %.2f)" % (np.mean(scores[:,i]), np.std(scores[:,i])))
-
-
+    main()
+    
 
 
 
