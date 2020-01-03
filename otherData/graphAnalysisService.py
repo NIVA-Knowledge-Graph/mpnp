@@ -2,8 +2,8 @@ import pandas as pd
 import collections
 
 
-def print_graph_stat():
-    kg = pd.read_csv('FB15k-237-train.txt', sep='\t')
+def print_graph_stat(filename):
+    kg = pd.read_csv(filename, sep='\t')
     kg = list(zip(kg['s'], kg['p'], kg['o']))
 
     s = [s for s, p, o in kg]
@@ -25,11 +25,10 @@ def print_graph_stat():
     print("len sub:" + str(len(subjects)) + " len object: " + str(len(objects)))
 
 
-def find_duplicates():
-    kg = pd.read_csv('FB15k-237-train.txt', sep='\t')
+def find_duplicates(filename):
+    kg = pd.read_csv(filename, sep='\t')
 
     kg = list(zip(kg['s'], kg['p'], kg['o']))
-    #kg = [(s, p, o) for s, p, o, in kg if p != 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type']
 
     s = [s for s, p, o in kg]
     o = [o for s, p, o in kg]
@@ -37,12 +36,17 @@ def find_duplicates():
     sduplicates = [item for item, count in collections.Counter(s).items() if count > 1]
     oduplicates = [item for item, count in collections.Counter(o).items() if count > 1]
 
-    print("dublicates of subjects: " + str(len(sduplicates)))
-    print("dublicates of obejcts: " + str(len(oduplicates)))
+    print("duplicates of subjects: " + str(len(sduplicates)))
+    print("duplicates of objects: " + str(len(oduplicates)))
 
 def main():
-    print_graph_stat()
-    find_duplicates()
+    print('FB15k-237-train.txt')
+    print_graph_stat('FB15k-237-train.txt')
+    find_duplicates('FB15k-237-train.txt')
+    print('')
+    print('WN18-train.txt')
+    print_graph_stat('WN18-train.txt')
+    find_duplicates('WN18-train.txt')
 
 
 if __name__ == '__main__':
