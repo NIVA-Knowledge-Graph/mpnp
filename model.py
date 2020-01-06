@@ -133,7 +133,7 @@ def create_kg_model(N, M, ed, dense_layers=(16, 16), method=DistMult):
     # embedding
     
     si, pi, oi = Input((1,)), Input((1,)), Input((1,))
-    e = Embedding(N, ed, name='entity_embedding')
+    e = Embedding(N, ed, name='entity_embedding', embeddings_constraint = MaxNorm(1,axis=1))
     r = Embedding(M, ed, name='relation_embedding')
     s = Dropout(0.2)(e(si))
     p = Dropout(0.2)(r(pi))
@@ -154,7 +154,7 @@ def create_kg_model(N, M, ed, dense_layers=(16, 16), method=DistMult):
 def create_on_model(N, ed, dense_layers=(16, 16)):
     # one-hot model
     # embedding
-    e = Embedding(N, ed, name='entity_embedding')
+    e = Embedding(N, ed, name='entity_embedding', embeddings_constraint=MaxNorm(1,axis=1))
 
     # regression
     xi = Input((1,))
@@ -167,14 +167,14 @@ def create_on_model(N, ed, dense_layers=(16, 16)):
     return Model(inputs=xi, outputs=x)
 
 def main():
-    #kg = pd.read_csv('./kg/kg_chebi_CID.csv')
-    #kg = list(zip(kg['s'], kg['p'], kg['o']))
-    #kgmesh = pd.read_csv('./kg/kg_mesh_CID.csv')
-    #kgmesh = list(zip(kgmesh['s'], kgmesh['p'], kgmesh['o']))
-    #kg = kg + kgmesh
-    
-    kg = pd.read_csv('./kg/reduced_kg.csv')
+    kg = pd.read_csv('./kg/kg_chebi_CID.csv')
     kg = list(zip(kg['s'], kg['p'], kg['o']))
+    kgmesh = pd.read_csv('./kg/kg_mesh_CID.csv')
+    kgmesh = list(zip(kgmesh['s'], kgmesh['p'], kgmesh['o']))
+    kg = kg + kgmesh
+    
+    #kg = pd.read_csv('./kg/reduced_kg.csv')
+    #kg = list(zip(kg['s'], kg['p'], kg['o']))
 
     entities = set([s for s, p, o in kg]) | set([o for s, p, o in kg])
     relations = set([p for s, p, o in kg])
@@ -238,7 +238,7 @@ def main():
     on_model.compile(optimizer=Adam(lr=1e-3), metrics=metricsWithoutScore, loss={'x': 'binary_crossentropy'},
                      loss_weights={'x': 1})
     on_model.summary()
-    bs = 2**12
+    bs = 2**20
 
     best_loss1 = np.Inf
     best_loss2 = np.Inf
