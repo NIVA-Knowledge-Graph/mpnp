@@ -24,34 +24,40 @@ from keras.regularizers import l2, l1, l1_l2
 from tqdm import tqdm
 
 from keras.optimizers import Adam
+from keras.callbacks import Callback
+import matplotlib.pyplot as plt
 
 
 def circular_cross_correlation(x, y):
     """Periodic correlation, implemented using the FFT.
     x and y must be of the same length.
     """
-    return tf.real(tf.signal.ifft(
+    return tf.math.real(tf.signal.ifft(
         tf.multiply(tf.math.conj(tf.signal.fft(tf.cast(x, tf.complex64))), tf.signal.fft(tf.cast(y, tf.complex64)))))
 
 
 def HolE(s, p, o):
     # sigm(p^T (s \star o))
     # dot product in tf: sum(multiply(a, b) axis = 1)
-    score = tf.reduce_sum(tf.multiply(p, circular_cross_correlation(s, o)), axis=-1)
+    l = Lambda(lambda x: tf.reduce_sum(tf.multiply(x[1], circular_cross_correlation(x[0], x[2])), axis=-1))
+    score = l([s, p, o])
     score = Activation('sigmoid', name='score')(score)
     return score
 
 
 def TransE(s, p, o):
-    score = Add()([s, p, -o])
-    score = tf.norm(score, axis=-1)
-    return Activation('tanh', name='score')(1 / score)
+    score = Multiply([s, p, o])
+    l = Lambda(lambda x: K.sqrt(K.sum(K.square(x), axis=-1)))
+    score = l(score)
+    score = Activation('tanh', name='score')(1 / score)
+    return score
 
 
 def DistMult(s, p, o):
-    score = Multiply()([s, p, o])
-    score = Lambda(lambda x: K.sum(x, axis=-1))(score)
-    return Activation('sigmoid', name='score')(score)
+    l = Lambda(lambda x: K.sum(x[0] * x[1] * x[2], axis=-1))
+    score = l([s, p, o])
+    score = Activation('sigmoid', name='score')(score)
+    return score
 
 
 def recall(y_true, y_pred):
@@ -90,7 +96,12 @@ def generate_negative(kg, N, negative=2, check_kg=False):
         kgl.append(1)
         for _ in range(negative):
             t = (choice(range(N)), p, choice(range(N)))
-            if check_kg and not t in true_kg:
+
+            if check_kg:
+                if not t in true_kg:
+                    kg.append(t)
+                    kgl.append(0)
+            else:
                 kg.append(t)
                 kgl.append(0)
 
@@ -117,22 +128,23 @@ def balance_inputs(input1, input1l, input2, input2l):
     return input1, input1l, input2, input2l
 
 
-def create_kg_model(N, M, ed, dense_layers=(16, 16)):
+def create_kg_model(N, M, ed, dense_layers=(16, 16), method=DistMult):
     # kge model
     # embedding
+
     si, pi, oi = Input((1,)), Input((1,)), Input((1,))
-    e = Embedding(N, ed, embeddings_constraint=MaxNorm(axis=1), name='entity_embedding')
+    e = Embedding(N, ed, name='entity_embedding')
     r = Embedding(M, ed, name='relation_embedding')
     s = Dropout(0.2)(e(si))
     p = Dropout(0.2)(r(pi))
     o = Dropout(0.2)(e(oi))
-    score = DistMult(s, p, o)
+    score = method(s, p, o)
 
     # regression
     xi = Input((1,))
     x = Lambda(lambda x: K.squeeze(x, 1))(e(xi))
     for f in dense_layers:
-        x = Dense(f, activation=LeakyReLU(0.1))(x)
+        x = Dense(f, activation='relu')(x)
         x = Dropout(0.2)(x)
     x = Dense(1, activation='sigmoid', name='x')(x)
 
@@ -142,13 +154,13 @@ def create_kg_model(N, M, ed, dense_layers=(16, 16)):
 def create_on_model(N, ed, dense_layers=(16, 16)):
     # one-hot model
     # embedding
-    e = Embedding(N, ed, embeddings_constraint=MaxNorm(axis=1), name='entity_embedding')
+    e = Embedding(N, ed, name='entity_embedding')
 
     # regression
     xi = Input((1,))
     x = Lambda(lambda x: K.squeeze(x, 1))(e(xi))
     for f in dense_layers:
-        x = Dense(f, activation=LeakyReLU(0.1))(x)
+        x = Dense(f, activation='relu')(x)
         x = Dropout(0.2)(x)
     x = Dense(1, activation='sigmoid', name='x')(x)
 
@@ -156,15 +168,14 @@ def create_on_model(N, ed, dense_layers=(16, 16)):
 
 
 def main():
-    #kg = pd.read_csv('./kg/kg_chebi_CID.csv')
-    #kg = list(zip(kg['s'], kg['p'], kg['o']))
-    #kgmesh = pd.read_csv('./kg/kg_mesh_CID.csv')
-    #kgmesh = list(zip(kgmesh['s'], kgmesh['p'], kgmesh['o']))
-    #kg = kg + kgmesh
+    # kg = pd.read_csv('./kg/kg_chebi_CID.csv')
+    # kg = list(zip(kg['s'], kg['p'], kg['o']))
+    # kgmesh = pd.read_csv('./kg/kg_mesh_CID.csv')
+    # kgmesh = list(zip(kgmesh['s'], kgmesh['p'], kgmesh['o']))
+    # kg = kg + kgmesh
 
     kg = pd.read_csv('./kg/reduced_kg.csv')
     kg = list(zip(kg['s'], kg['p'], kg['o']))
-
 
     entities = set([s for s, p, o in kg]) | set([o for s, p, o in kg])
     relations = set([p for s, p, o in kg])
@@ -173,6 +184,9 @@ def main():
     dfte = pd.read_csv('./data/LC50_test_CID.csv').dropna()
     Xtr, ytr = list(dftr['cid']), list(dftr['y'])
     Xte, yte = list(dfte['cid']), list(dfte['y'])
+
+    l1 = len((set(Xtr) | set(Xte)) - entities)
+    print('Proportion of entites missing in KG:', l1 / len(set(Xtr) | set(Xte)))
 
     tr = [(x, y) for x, y in zip(Xtr, ytr) if x in entities]
     te = [(x, y) for x, y in zip(Xte, yte) if x in entities]
@@ -186,14 +200,11 @@ def main():
     scaler = MinMaxScaler()
     ytr = scaler.fit_transform(ytr)
     yte = scaler.transform(yte)
-    ytr = np.around(ytr - np.median(ytr) + 0.5)
-    yte = np.around(yte - np.median(yte) + 0.5)
+    ytr = np.abs(np.around(ytr - np.median(ytr) + 0.5) - 1)
+    yte = np.abs(np.around(yte - np.median(yte) + 0.5) - 1)
 
     ytr = list(ytr.reshape((-1,)))
     yte = list(yte.reshape((-1,)))
-
-    l1 = len((set(Xtr) | set(Xte)) - entities)
-    print('Proportion of entites missing in KG:', l1 / len(set(Xtr) | set(Xte)))
 
     entities = list(entities)
     relations = list(relations)
@@ -209,26 +220,41 @@ def main():
     # modelling
     N = len(entities)
     M = len(relations)
-    ed = 64
+    ed = 128
 
-    kg_model = create_kg_model(N, M, ed)
+    kg_model = create_kg_model(N, M, ed, method=DistMult)
     on_model = create_on_model(N, ed)
 
     metrics = {'score': ['acc', precision, recall, f1]}  # ,'x':['mae','mse',r2_keras]}
     metrics['x'] = metrics['score']
     metricsWithoutScore = {'x': ['acc', precision, recall, f1]}
     epochs = 100
+    warmup = 0.1
 
-    kg_model.compile(optimizer=Adam(lr=1e-3, decay=1e-3 / epochs), metrics=metrics,
+    kg_model.compile(optimizer=Adam(lr=1e-3), metrics=metrics,
                      loss={'score': 'binary_crossentropy', 'x': 'binary_crossentropy'},
-                     loss_weights={'score': 1, 'x': 0.5})
+                     loss_weights={'score': 1, 'x': 0.1})
     kg_model.summary()
 
-    on_model.compile(optimizer=Adam(lr=1e-3, decay=1e-3 / epochs), metrics=metricsWithoutScore, loss={'x': 'binary_crossentropy'},
+    on_model.compile(optimizer=Adam(lr=1e-3), metrics=metricsWithoutScore, loss={'x': 'binary_crossentropy'},
                      loss_weights={'x': 1})
     on_model.summary()
+    bs = 2 ** 12
+
+    best_loss1 = np.Inf
+    best_loss2 = np.Inf
+
+    # stop training params
+    patience = 5
+    patience_delta = 0.001
+    p1 = patience
+    p2 = patience
+
+    losses = []
 
     for i in tqdm(range(epochs)):
+        if p1 <= 0 and p2 <= 0: break
+
         kg, kgl = generate_negative(true_kg, N, negative=4, check_kg=False)
         kg, kgl, tmpXtr, tmpytr = balance_inputs(kg, kgl, Xtr, ytr)
 
@@ -240,19 +266,57 @@ def main():
         inputs = [X1[:, 0], X1[:, 1], X1[:, 2], X2]
         outputs = [y1, y2]
 
-        if i / epochs > 0.75:
+        # warm-up embeddings. Train only embeddings for first epochs.
+        # if i / epochs <= warmup:
+        # for l in kg_model.layers:
+        # if 'dense' in l.name or 'x' in l.name:
+        # l.trainable = False
+        # else:
+        # for l in kg_model.layers:
+        # l.trainable = True
+
+        # freeze embeddings toward end of training.
+        if i / epochs >= 0.9:
             kg_model.get_layer('entity_embedding').trainable = False
             kg_model.get_layer('relation_embedding').trainable = False
             on_model.get_layer('entity_embedding').trainable = False
 
-        # train the model
-        kg_model.fit(
-            inputs, outputs,
-            epochs=1, batch_size=2 ** 11, verbose=1)
+        if p1 > 0:
+            l1 = kg_model.fit(
+                inputs, outputs,
+                epochs=1, batch_size=bs, verbose=1)
+            loss1 = l1.history['loss'][-1]
 
-        on_model.fit(
-            X2, y2,
-            epochs=1, batch_size=2 ** 11, verbose=1)
+        if p2 > 0:
+            l2 = on_model.fit(
+                X2, y2,
+                epochs=1, batch_size=bs, verbose=1)
+            loss2 = l2.history['loss'][-1]
+
+        if loss1 - patience_delta >= best_loss1:
+            p1 -= 1
+
+        if loss2 - patience_delta >= best_loss2:
+            p2 -= 1
+
+        if loss1 < best_loss1:
+            best_loss1 = loss1
+            p1 = patience
+
+        if loss2 < best_loss2:
+            best_loss2 = loss2
+            p2 = patience
+
+        losses.append((l1.history['loss'], l1.history['score_loss'], l1.history['x_loss'], l2.history['loss']))
+
+    # losses = list(zip(*losses))
+    # for l in losses:
+    # plt.plot(l)
+    # plt.title('model loss')
+    # plt.ylabel('loss')
+    # plt.xlabel('epoch')
+    # plt.legend(['KG total', 'KG score', 'KG x', 'ON x'])
+    # plt.show()
 
     X1 = np.asarray(kg[:len(yte)])
     y1 = np.asarray(kgl[:len(yte)]).reshape((-1,))
@@ -262,15 +326,16 @@ def main():
     inputs = [X1[:, 0], X1[:, 1], X1[:, 2], X2]
     outputs = [y1, y2]
 
-    e1 = kg_model.evaluate(inputs, outputs, batch_size=2 ** 11)
-    e2 = on_model.evaluate(X2, y2, batch_size=2 ** 11)
+    e1 = kg_model.evaluate(inputs, outputs, batch_size=bs)
+    e2 = on_model.evaluate(inputs[-1], outputs[-1], batch_size=bs)
 
     d = defaultdict(list)
 
     for n, v in zip(kg_model.metrics_names, e1):
-        d[n].append(v)
+        d['KG ' + n].append(v)
+
     for n, v in zip(on_model.metrics_names, e2):
-        d['x_' + n].append(v)
+        d['One-Hot ' + n].append(v)
 
     for k in d:
         print(k, d[k])
