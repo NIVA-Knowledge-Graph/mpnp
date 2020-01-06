@@ -46,14 +46,15 @@ def HolE(s, p, o):
 
 
 def TransE(s, p, o):
-    l = Lambda(lambda x: K.sqrt(K.sum(K.square(x[0]+x[1]-x[2]), axis=-1)))
-    score = l([s,p,o])
+    score = Multiply([s,p,o])
+    l = Lambda(lambda x: K.sqrt(K.sum(K.square(x), axis=-1)))
+    score = l(score)
     score = Activation('tanh', name='score')(1 / score)
     return score
 
 
 def DistMult(s, p, o):
-    l = Lambda(lambda x: K.sum(x[0]*x[1]*x[2], axis=-1))
+    l = Lambda(lambda x: K.sum( x[0]*x[1]*x[2], axis=-1))
     score = l([s,p,o])
     score = Activation('sigmoid', name='score')(score)
     return score
@@ -220,7 +221,7 @@ def main():
     M = len(relations)
     ed = 128
 
-    kg_model = create_kg_model(N, M, ed, method = HolE)
+    kg_model = create_kg_model(N, M, ed, method = DistMult)
     on_model = create_on_model(N, ed)
     
     metrics = {'score': ['acc', precision, recall, f1]}  # ,'x':['mae','mse',r2_keras]}
@@ -265,13 +266,13 @@ def main():
         outputs = [y1, y2]
         
         #warm-up embeddings. Train only embeddings for first epochs. 
-        if i / epochs <= warmup:
-            for l in kg_model.layers:
-                if 'dense' in l.name or 'x' in l.name:
-                    l.trainable = False
-        else:
-            for l in kg_model.layers:
-                l.trainable = True
+        #if i / epochs <= warmup:
+            #for l in kg_model.layers:
+                #if 'dense' in l.name or 'x' in l.name:
+                    #l.trainable = False
+        #else:
+            #for l in kg_model.layers:
+                #l.trainable = True
 
         #freeze embeddings toward end of training.
         if i / epochs >= 0.9:
