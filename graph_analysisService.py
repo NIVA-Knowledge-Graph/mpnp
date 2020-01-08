@@ -165,11 +165,27 @@ def create_reduced_kg2():
 
     kg.to_csv('kg/reduced_kg.csv')
 
+def compair_train_test():
+    dftr = pd.read_csv('./data/LC50_train_CID.csv').dropna()
+    dftr = list(zip(dftr['cid'], dftr['y']))
+    dfte = pd.read_csv('./data/LC50_test_CID.csv').dropna()
+    dfte = list(zip(dfte['cid'], dfte['y']))
+
+    train = set([cid for cid, y in dftr])
+    test = set([cid for cid, y in dfte])
+
+    print("in test: " + str(len(test)))
+    print("in test but not in train " + str(len(test-train)))
+
+
+    pass
+
 def main():
     #print_graph_stat()
     #find_duplicates()
     #shared_elements()
-    create_reduced_kg2()
+    #create_reduced_kg2()
+    compair_train_test()
 
 
 if __name__ == '__main__':

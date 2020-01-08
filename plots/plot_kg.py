@@ -7,9 +7,17 @@ import networkx as nx
 
 get_compounds(str("hei"), 'inchikey')
 
-kg = pd.read_csv('./kg/kg_chebi.csv')
+kg = pd.read_csv('./kg/kg_chebi_CID.csv')
 kg = list(zip(kg['s'], kg['p'], kg['o']))
-# kg = kg[:200]
+kg = kg[:10000]
+
+
+kg_mesh = pd.read_csv('./kg/kg_mesh_CID.csv')
+kg_mesh = list(zip(kg_mesh['s'], kg_mesh['p'], kg_mesh['o']))
+
+kg_mesh = kg_mesh[:1000]
+
+kg = kg + kg_mesh
 objects = [o for s, p, o in kg]
 subjects = [s for s, p, o in kg]
 

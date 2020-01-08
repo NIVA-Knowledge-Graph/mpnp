@@ -27,6 +27,8 @@ from keras.optimizers import Adam
 from keras.callbacks import Callback
 import matplotlib.pyplot as plt
 
+import pickle
+
 
 def circular_cross_correlation(x, y):
     """Periodic correlation, implemented using the FFT.
@@ -67,6 +69,18 @@ def recall(y_true, y_pred):
     return r
 
 
+def add_result(name, result):
+    obj = {}
+    with open('results/results.pkl', 'rb') as f:
+        try:
+            obj = pickle.load(f)
+        except:
+            pass
+        obj[name] = result
+    with open('results/results.pkl', 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
+
 def precision(y_true, y_pred):
     true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
     predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
@@ -83,7 +97,7 @@ def f1(y_true, y_pred):
 def r2_keras(y_true, y_pred):
     SS_res = K.sum(K.square(y_true - y_pred))
     SS_tot = K.sum(K.square(y_true - K.mean(y_true)))
-    return (1 - SS_res / (SS_tot + K.epsilon()))
+    return 1 - SS_res / (SS_tot + K.epsilon())
 
 
 def generate_negative(kg, N, negative=2, check_kg=False):
@@ -133,7 +147,7 @@ def create_kg_model(N, M, ed, dense_layers=(16, 16), method=DistMult):
     # embedding
 
     si, pi, oi = Input((1,)), Input((1,)), Input((1,))
-    e = Embedding(N, ed, name='entity_embedding')
+    e = Embedding(N, ed, name='entity_embedding', embeddings_constraint=MaxNorm(1,axis=1))
     r = Embedding(M, ed, name='relation_embedding')
     s = Dropout(0.2)(e(si))
     p = Dropout(0.2)(r(pi))
@@ -154,7 +168,7 @@ def create_kg_model(N, M, ed, dense_layers=(16, 16), method=DistMult):
 def create_on_model(N, ed, dense_layers=(16, 16)):
     # one-hot model
     # embedding
-    e = Embedding(N, ed, name='entity_embedding')
+    e = Embedding(N, ed, name='entity_embedding', embeddings_constraint=MaxNorm(1,axis=1))
 
     # regression
     xi = Input((1,))
@@ -168,15 +182,26 @@ def create_on_model(N, ed, dense_layers=(16, 16)):
 
 
 def main():
-    # kg = pd.read_csv('./kg/kg_chebi_CID.csv')
-    # kg = list(zip(kg['s'], kg['p'], kg['o']))
-    # kgmesh = pd.read_csv('./kg/kg_mesh_CID.csv')
-    # kgmesh = list(zip(kgmesh['s'], kgmesh['p'], kgmesh['o']))
-    # kg = kg + kgmesh
+    run_full_kg(100)
+    #run_reduced_kg(100)
 
+
+def run_full_kg(epochs):
+    kg = pd.read_csv('./kg/kg_chebi_CID.csv')
+    kg = list(zip(kg['s'], kg['p'], kg['o']))
+    kgmesh = pd.read_csv('./kg/kg_mesh_CID.csv')
+    kgmesh = list(zip(kgmesh['s'], kgmesh['p'], kgmesh['o']))
+    kg = kg + kgmesh
+    run(kg, "full_kg", epochs)
+
+
+def run_reduced_kg(epochs):
     kg = pd.read_csv('./kg/reduced_kg.csv')
     kg = list(zip(kg['s'], kg['p'], kg['o']))
+    run(kg, "reduced_kg", epochs)
 
+
+def run(kg, result_name, epochs):
     entities = set([s for s, p, o in kg]) | set([o for s, p, o in kg])
     relations = set([p for s, p, o in kg])
 
@@ -228,7 +253,6 @@ def main():
     metrics = {'score': ['acc', precision, recall, f1]}  # ,'x':['mae','mse',r2_keras]}
     metrics['x'] = metrics['score']
     metricsWithoutScore = {'x': ['acc', precision, recall, f1]}
-    epochs = 100
     warmup = 0.1
 
     kg_model.compile(optimizer=Adam(lr=1e-3), metrics=metrics,
@@ -239,7 +263,7 @@ def main():
     on_model.compile(optimizer=Adam(lr=1e-3), metrics=metricsWithoutScore, loss={'x': 'binary_crossentropy'},
                      loss_weights={'x': 1})
     on_model.summary()
-    bs = 2 ** 12
+    bs = 2 ** 20
 
     best_loss1 = np.Inf
     best_loss2 = np.Inf
@@ -311,7 +335,7 @@ def main():
 
     # losses = list(zip(*losses))
     # for l in losses:
-    # plt.plot(l)
+    #    plt.plot(l)
     # plt.title('model loss')
     # plt.ylabel('loss')
     # plt.xlabel('epoch')
@@ -343,6 +367,7 @@ def main():
     tmp = list(np.unique(yte, return_counts=True)[-1] / len(yte))
     print('Prior', max(tmp))
 
+    add_result(result_name, d)
 
 if __name__ == '__main__':
     main()
