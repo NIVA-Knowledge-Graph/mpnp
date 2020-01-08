@@ -370,5 +370,6 @@ def run(kg, result_name, epochs):
 
     add_result(result_name, d)
 
+
 if __name__ == '__main__':
     main()
