@@ -145,9 +145,9 @@ def balance_inputs(input1, input1l, input2, input2l):
 def create_kg_model(N, M, ed, dense_layers=(16, 16), method=DistMult):
     # kge model
     # embedding
-
+    
     si, pi, oi = Input((1,)), Input((1,)), Input((1,))
-    e = Embedding(N, ed, name='entity_embedding', embeddings_constraint=MaxNorm(1,axis=1))
+    e = Embedding(N, ed, name='entity_embedding', embeddings_constraint = MaxNorm(1,axis=1))
     r = Embedding(M, ed, name='relation_embedding')
     s = Dropout(0.2)(e(si))
     p = Dropout(0.2)(r(pi))
@@ -263,7 +263,7 @@ def run(kg, result_name, epochs):
     on_model.compile(optimizer=Adam(lr=1e-3), metrics=metricsWithoutScore, loss={'x': 'binary_crossentropy'},
                      loss_weights={'x': 1})
     on_model.summary()
-    bs = 2 ** 20
+    bs = 2**12
 
     best_loss1 = np.Inf
     best_loss2 = np.Inf
@@ -289,15 +289,15 @@ def run(kg, result_name, epochs):
 
         inputs = [X1[:, 0], X1[:, 1], X1[:, 2], X2]
         outputs = [y1, y2]
-
-        # warm-up embeddings. Train only embeddings for first epochs.
-        # if i / epochs <= warmup:
-        # for l in kg_model.layers:
-        # if 'dense' in l.name or 'x' in l.name:
-        # l.trainable = False
-        # else:
-        # for l in kg_model.layers:
-        # l.trainable = True
+        
+        #warm-up embeddings. Train only embeddings for first epochs. 
+        #if i / epochs <= warmup:
+            #for l in kg_model.layers:
+                #if 'dense' in l.name or 'x' in l.name:
+                    #l.trainable = False
+        #else:
+            #for l in kg_model.layers:
+                #l.trainable = True
 
         # freeze embeddings toward end of training.
         if i / epochs >= 0.9:
@@ -330,18 +330,19 @@ def run(kg, result_name, epochs):
         if loss2 < best_loss2:
             best_loss2 = loss2
             p2 = patience
-
-        losses.append((l1.history['loss'], l1.history['score_loss'], l1.history['x_loss'], l2.history['loss']))
-
-    # losses = list(zip(*losses))
-    # for l in losses:
-    #    plt.plot(l)
-    # plt.title('model loss')
-    # plt.ylabel('loss')
-    # plt.xlabel('epoch')
-    # plt.legend(['KG total', 'KG score', 'KG x', 'ON x'])
-    # plt.show()
-
+        
+        losses.append((l1.history['loss'],l1.history['score_loss'],l1.history['x_loss'],l2.history['loss']))
+        
+        
+    #losses = list(zip(*losses))
+    #for l in losses:
+        #plt.plot(l)
+    #plt.title('model loss')
+    #plt.ylabel('loss')
+    #plt.xlabel('epoch')
+    #plt.legend(['KG total', 'KG score', 'KG x', 'ON x'])
+    #plt.show()
+        
     X1 = np.asarray(kg[:len(yte)])
     y1 = np.asarray(kgl[:len(yte)]).reshape((-1,))
     X2 = np.asarray(Xte)
