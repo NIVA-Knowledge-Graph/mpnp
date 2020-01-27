@@ -182,8 +182,23 @@ def create_on_model(N, ed, dense_layers=(16, 16)):
 
 
 def main():
-    run_full_kg(100)
+    #run_full_kg(100)
     #run_reduced_kg(100)
+    #run_filtered_kg(100)
+    #run_reduced_kg_3(100)
+    run_neighbors(100)
+
+
+def run_filtered_kg(epochs):
+    kg = pd.read_csv('./kg/kg_chebi_CID.csv')
+    kg = list(zip(kg['s'], kg['p'], kg['o']))
+    kg = [(s, p, o) for s, p, o, in kg if p != 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type']
+
+    kgmesh = pd.read_csv('./kg/kg_chebi_CID.csv')
+    kgmesh = list(zip(kgmesh['s'], kgmesh['p'], kgmesh['o']))
+    kgmesh = [(s, p, o) for s, p, o, in kgmesh if s.startswith('http://rdf.ncbi.nlm.nih.gov/pubchem/compound/CID')]
+    kg = kg + kgmesh
+    run(kg, "2filtered_kg", epochs)
 
 
 def run_full_kg(epochs):
@@ -192,13 +207,31 @@ def run_full_kg(epochs):
     kgmesh = pd.read_csv('./kg/kg_mesh_CID.csv')
     kgmesh = list(zip(kgmesh['s'], kgmesh['p'], kgmesh['o']))
     kg = kg + kgmesh
-    run(kg, "full_kg", epochs)
+    run(kg, "full_kg_v1", epochs)
 
 
 def run_reduced_kg(epochs):
     kg = pd.read_csv('./kg/reduced_kg.csv')
     kg = list(zip(kg['s'], kg['p'], kg['o']))
     run(kg, "reduced_kg", epochs)
+
+
+def run_reduced_kg_3(epochs):
+    kg = pd.read_csv('./kg/reduced_kg_3.csv')
+    kg = list(zip(kg['s'], kg['p'], kg['o']))
+    kg1 = []
+    for i in range(6):
+        kg1 = kg1 + kg
+    run(kg1, "reduced_kg_V3_g6_3th", epochs)
+
+
+def run_neighbors(epochs):
+    kg = pd.read_csv('./kg/neighbors.csv')
+    kg = list(zip(kg['s'], kg['p'], kg['o']))
+    #kg1 = []
+    #for i in range(2):
+    #    kg1 = kg1 + kg
+    run(kg, "new_neighbors_v1", epochs)
 
 
 def run(kg, result_name, epochs):
@@ -263,7 +296,7 @@ def run(kg, result_name, epochs):
     on_model.compile(optimizer=Adam(lr=1e-3), metrics=metricsWithoutScore, loss={'x': 'binary_crossentropy'},
                      loss_weights={'x': 1})
     on_model.summary()
-    bs = 2**12
+    bs = 2**20 #1000 # 64 # 2**12 #2**20
 
     best_loss1 = np.Inf
     best_loss2 = np.Inf
@@ -336,7 +369,7 @@ def run(kg, result_name, epochs):
         
     #losses = list(zip(*losses))
     #for l in losses:
-        #plt.plot(l)
+    #    plt.plot(l)
     #plt.title('model loss')
     #plt.ylabel('loss')
     #plt.xlabel('epoch')

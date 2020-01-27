@@ -14,11 +14,20 @@ def plot_results():
     kg = []
     on = []
 
+    metrictype = "f1"
     results = load_results()
-    for result in results:
-        labels.append(result)
-        kg.append(results[result]['KG x_f1'][0])
-        on.append(results[result]['One-Hot f1'][0])
+
+    results2 = [#'full_kg', 'full_kg_2th', 'full_kg_3th', 'full_kg_4th' #'reduced_kg_V3_g6', 'reduced_kg_V3_g6_2th', 'reduced_kg_V3_g6_3th', 'neighbors', 'neighbors_v2', 'neighbors_v3',
+                #]
+                'new_neighbors_v1', 'new_neighbors_v2', 'new_neighbors_v3', 'new_neighbors_v4'] #'reduced_kg', 'reduced_kg_2th', 'reduced_kg_3th', 'reduced_kg_150',
+    for result in results2:
+        #labels.append(result + " f1")
+        #kg.append(results[result]['KG x_f1'][0])
+        #on.append(results[result]['One-Hot f1'][0])
+
+        labels.append(result + " " + metrictype)
+        kg.append(results[result]['KG x_' + metrictype][0])
+        on.append(results[result]['One-Hot ' + metrictype][0])
 
     x = np.arange(len(labels))
     width = 0.20
@@ -28,7 +37,7 @@ def plot_results():
     ax.bar(x + width / 2, on, width, label='ON')
 
     ax.set_ylabel('Value')
-    ax.set_title(' F1 metrics')
+    ax.set_title(metrictype + ' metrics')
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
     ax.legend()
@@ -59,6 +68,8 @@ def plot_results():
     plt.title('Results')
     plt.show()
     """
+
+
 def main():
     plot_results()
 
