@@ -9,18 +9,18 @@ def main():
 
 
 def crawl_relevant():
-    kg = pd.read_csv('../kg/kg_chebi_CID.csv')
+    kg = pd.read_csv('./kg/kg_chebi_CID.csv')
     kg = list(zip(kg['s'], kg['p'], kg['o']))
 
-    kgmesh = pd.read_csv('../kg/kg_mesh_CID.csv')
+    kgmesh = pd.read_csv('./kg/kg_mesh_CID.csv')
     kgmesh = list(zip(kgmesh['s'], kgmesh['p'], kgmesh['o']))
 
     kg = kg + kgmesh
     kg = set(kg)  # remove duplicates
 
-    dftr = pd.read_csv('../data/LC50_train_CID.csv').dropna()
+    dftr = pd.read_csv('./data/LC50_train_CID.csv').dropna()
     dftr = list(zip(dftr['cid'], dftr['y']))
-    dfte = pd.read_csv('../data/LC50_test_CID.csv').dropna()
+    dfte = pd.read_csv('./data/LC50_test_CID.csv').dropna()
     dfte = list(zip(dfte['cid'], dfte['y']))
 
     train = [cid for cid, y in dftr]
@@ -47,10 +47,10 @@ def crawl_relevant():
 
 
 def crawl_all():
-    kg = pd.read_csv('../kg/kg_chebi_CID.csv')
+    kg = pd.read_csv('./kg/kg_chebi_CID.csv')
     kg = list(zip(kg['s'], kg['p'], kg['o']))
 
-    kgmesh = pd.read_csv('../kg/kg_mesh_CID.csv')
+    kgmesh = pd.read_csv('./kg/kg_mesh_CID.csv')
     kgmesh = list(zip(kgmesh['s'], kgmesh['p'], kgmesh['o']))
 
     kg = kg + kgmesh

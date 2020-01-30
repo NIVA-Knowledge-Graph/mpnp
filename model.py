@@ -182,11 +182,21 @@ def create_on_model(N, ed, dense_layers=(16, 16)):
 
 
 def main():
-    #run_full_kg(100)
+    run_full_kg(100)
     #run_reduced_kg(100)
     #run_filtered_kg(100)
     #run_reduced_kg_3(100)
-    run_neighbors(100)
+    #run_neighbors(100)
+    #run_scored_kg(100)
+
+
+def run_scored_kg(epochs):
+    pass
+    kg = pd.read_csv('./kg/sorted_kg.csv')
+    kg = list(zip(kg['s'], kg['p'], kg['o'], kg['score']))
+    kg = [(s,p,o) for s, p, o, score in kg if score > 0]
+    pass
+    run(kg, "scored_kg", epochs)
 
 
 def run_filtered_kg(epochs):
@@ -194,7 +204,7 @@ def run_filtered_kg(epochs):
     kg = list(zip(kg['s'], kg['p'], kg['o']))
     kg = [(s, p, o) for s, p, o, in kg if p != 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type']
 
-    kgmesh = pd.read_csv('./kg/kg_chebi_CID.csv')
+    kgmesh = pd.read_csv('./kg/kg_mesh_CID.csv')
     kgmesh = list(zip(kgmesh['s'], kgmesh['p'], kgmesh['o']))
     kgmesh = [(s, p, o) for s, p, o, in kgmesh if s.startswith('http://rdf.ncbi.nlm.nih.gov/pubchem/compound/CID')]
     kg = kg + kgmesh
@@ -207,7 +217,7 @@ def run_full_kg(epochs):
     kgmesh = pd.read_csv('./kg/kg_mesh_CID.csv')
     kgmesh = list(zip(kgmesh['s'], kgmesh['p'], kgmesh['o']))
     kg = kg + kgmesh
-    run(kg, "full_kg_v1", epochs)
+    run(kg, "full_kg_v4", epochs)
 
 
 def run_reduced_kg(epochs):

@@ -14,12 +14,12 @@ def plot_results():
     kg = []
     on = []
 
-    metrictype = "f1"
+    metrictype = "loss"
     results = load_results()
 
-    results2 = [#'full_kg', 'full_kg_2th', 'full_kg_3th', 'full_kg_4th' #'reduced_kg_V3_g6', 'reduced_kg_V3_g6_2th', 'reduced_kg_V3_g6_3th', 'neighbors', 'neighbors_v2', 'neighbors_v3',
+    results2 = ['full_kg_v1', 'full_kg_v2', 'full_kg_v3', 'full_kg_v4']#'full_kg_2th', 'full_kg_3th', 'full_kg_4th'] #'reduced_kg_V3_g6', 'reduced_kg_V3_g6_2th', 'reduced_kg_V3_g6_3th', 'neighbors', 'neighbors_v2', 'neighbors_v3',
                 #]
-                'new_neighbors_v1', 'new_neighbors_v2', 'new_neighbors_v3', 'new_neighbors_v4'] #'reduced_kg', 'reduced_kg_2th', 'reduced_kg_3th', 'reduced_kg_150',
+                #'new_neighbors_v1', 'new_neighbors_v2', 'new_neighbors_v3', 'new_neighbors_v4'] #'reduced_kg', 'reduced_kg_2th', 'reduced_kg_3th', 'reduced_kg_150',
     for result in results2:
         #labels.append(result + " f1")
         #kg.append(results[result]['KG x_f1'][0])
