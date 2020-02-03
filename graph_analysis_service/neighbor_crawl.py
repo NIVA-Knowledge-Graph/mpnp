@@ -81,21 +81,21 @@ def crawl_all():
 explored = set([])
 
 
-def find_neighbors(kg, h1):
+def find_neighbors(kg, to_be_explored):
     global explored
-    #print("size of h1: " + str(len(h1)) + ", explored: " + str(len(explored)))
-    if not h1:
+    if not to_be_explored:
         return
-    explored = explored | h1
-    Subject2 = [(s, p, o) for s, p, o in kg if o in h1]
-    s = [s for s, p, o in Subject2]
+    explored = explored | to_be_explored
+
+    connected_by_objects = [(s, p, o) for s, p, o in kg if o in to_be_explored]
+    s = [s for s, p, o in connected_by_objects]
     find_neighbors(kg, set(s) - explored)
-    Subject3 = [(s, p, o) for s, p, o in kg if s in h1]
-    o = [o for s, p, o in Subject3]
+
+    connected_by_subject = [(s, p, o) for s, p, o in kg if s in to_be_explored]
+    o = [o for s, p, o in connected_by_subject]
     find_neighbors(kg, set(o) - explored)
 
-    return Subject2 + Subject3
-    pass
+    return connected_by_objects + connected_by_subject
 
 
 if __name__ == '__main__':
