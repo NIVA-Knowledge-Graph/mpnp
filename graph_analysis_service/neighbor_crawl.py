@@ -5,7 +5,7 @@ import collections
 
 
 def main():
-    crawl_relevant()
+    crawl_all()
 
 
 def crawl_relevant():
@@ -20,13 +20,13 @@ def crawl_relevant():
 
     dftr = pd.read_csv('./data/LC50_train_CID.csv').dropna()
     dftr = list(zip(dftr['cid'], dftr['y']))
-    dfte = pd.read_csv('./data/LC50_test_CID.csv').dropna()
-    dfte = list(zip(dfte['cid'], dfte['y']))
+    #dfte = pd.read_csv('./data/LC50_test_CID.csv').dropna()
+    #dfte = list(zip(dfte['cid'], dfte['y']))
 
     train = [cid for cid, y in dftr]
-    test = [cid for cid, y in dfte]
+    #test = [cid for cid, y in dfte]
 
-    cids = list(set(train) | set(test))
+    cids = list(set(train) ) #| set(test))
 
     subject = [(s, p, o) for s, p, o in kg if o in cids]
     h1 = set([s for s, p, o in subject])
@@ -42,7 +42,7 @@ def crawl_relevant():
     all = set(all)
 
     all = pd.DataFrame(list(all), columns=['s', 'p', 'o'])
-    all.to_csv('kg/relevant_neighbors.csv')
+    all.to_csv('kg/relevant_neighbors_only_train.csv')
     pass
 
 
@@ -84,18 +84,22 @@ explored = set([])
 def find_neighbors(kg, to_be_explored):
     global explored
     if not to_be_explored:
-        return
+        return []
     explored = explored | to_be_explored
 
     connected_by_objects = [(s, p, o) for s, p, o in kg if o in to_be_explored]
     s = [s for s, p, o in connected_by_objects]
-    find_neighbors(kg, set(s) - explored)
+    results_when_searching_subjects = find_neighbors(kg, set(s) - explored)
 
     connected_by_subject = [(s, p, o) for s, p, o in kg if s in to_be_explored]
     o = [o for s, p, o in connected_by_subject]
-    find_neighbors(kg, set(o) - explored)
+    results_when_searching_objects = find_neighbors(kg, set(o) - explored)
 
-    return connected_by_objects + connected_by_subject
+    print(type(connected_by_objects))
+    print(type(connected_by_subject))
+    print(type(results_when_searching_objects))
+    print(type(results_when_searching_subjects))
+    return connected_by_objects + connected_by_subject + results_when_searching_objects + results_when_searching_subjects
 
 
 if __name__ == '__main__':

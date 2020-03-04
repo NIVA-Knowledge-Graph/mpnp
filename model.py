@@ -6,6 +6,7 @@ from keras.layers import Dense, Dropout, BatchNormalization, Embedding, Multiply
 
 from keras.utils import plot_model
 
+import math
 import numpy as np
 from random import choice
 from sklearn.model_selection import StratifiedKFold
@@ -26,7 +27,8 @@ from tqdm import tqdm
 from keras.optimizers import Adam
 from keras.callbacks import Callback
 import matplotlib.pyplot as plt
-
+from sklearn.metrics import roc_curve
+from sklearn.metrics import auc
 import pickle
 
 
@@ -48,10 +50,9 @@ def HolE(s, p, o):
 
 
 def TransE(s, p, o):
-    score = Multiply([s, p, o])
-    l = Lambda(lambda x: K.sqrt(K.sum(K.square(x), axis=-1)))
-    score = l(score)
-    score = Activation('tanh', name='score')(1 / score)
+    l = Lambda(lambda x: 1/tf.norm(x[0]+x[1]-x[2], axis=-1))
+    score = l([s, p, o])
+    score = Activation('sigmoid', name='score')(score) # Activation('tanh', name='score')(score)
     return score
 
 
@@ -105,9 +106,9 @@ def generate_negative(kg, N, negative=2, check_kg=False):
     true_kg = kg.copy()
     kg = []
     kgl = []
-    for s, p, o in true_kg:
+    for s, p, o, score in true_kg:
         kg.append((s, p, o))
-        kgl.append(1)
+        kgl.append(score)
         for _ in range(negative):
             t = (choice(range(N)), p, choice(range(N)))
 
@@ -148,6 +149,7 @@ def create_kg_model(N, M, ed, dense_layers=(16, 16), method=DistMult):
     
     si, pi, oi = Input((1,)), Input((1,)), Input((1,))
     e = Embedding(N, ed, name='entity_embedding', embeddings_constraint = MaxNorm(1,axis=1))
+    # Try to set the embeddings_initializer
     r = Embedding(M, ed, name='relation_embedding')
     s = Dropout(0.2)(e(si))
     p = Dropout(0.2)(r(pi))
@@ -182,71 +184,55 @@ def create_on_model(N, ed, dense_layers=(16, 16)):
 
 
 def main():
-    run_full_kg(100)
-    #run_reduced_kg(100)
-    #run_filtered_kg(100)
-    #run_reduced_kg_3(100)
-    #run_neighbors(100)
-    #run_scored_kg(100)
+    # run_full_kg(100)
+    run_scored_kg_avg('./kg/sorted_kg_w_touched_directed_one_step_back.csv', 'directed_one_step_back_avg_distmult_7', DistMult)
 
 
-def run_scored_kg(epochs):
-    pass
-    kg = pd.read_csv('./kg/sorted_kg.csv')
+def run_scored_kg_normalized(filename, save_name, embedding_method, epochs=100):
+    kg = pd.read_csv(filename)
     kg = list(zip(kg['s'], kg['p'], kg['o'], kg['score']))
-    kg = [(s,p,o) for s, p, o, score in kg if score > 0]
-    pass
-    run(kg, "scored_kg", epochs)
+    max_score = max([score for s, p, o, score in kg])
+    kg = [(s, p, o, score/(max_score*2)+0.5) for s, p, o, score in kg]
+    run(kg, save_name, epochs, embedding_method)
 
 
-def run_filtered_kg(epochs):
-    kg = pd.read_csv('./kg/kg_chebi_CID.csv')
-    kg = list(zip(kg['s'], kg['p'], kg['o']))
-    kg = [(s, p, o) for s, p, o, in kg if p != 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type']
-
-    kgmesh = pd.read_csv('./kg/kg_mesh_CID.csv')
-    kgmesh = list(zip(kgmesh['s'], kgmesh['p'], kgmesh['o']))
-    kgmesh = [(s, p, o) for s, p, o, in kgmesh if s.startswith('http://rdf.ncbi.nlm.nih.gov/pubchem/compound/CID')]
-    kg = kg + kgmesh
-    run(kg, "2filtered_kg", epochs)
+def run_scored_kg_avg(filename, save_name, embedding_method, epochs=100):
+    kg = pd.read_csv(filename)
+    kg = list(zip(kg['s'], kg['p'], kg['o'], kg['score'], kg['touched']))
+    kg = [(s, p, o, score/touched if touched != 0 else score) for s, p, o, score, touched in kg]
+    max_score = max([score for s, p, o, score in kg])
+    kg = [(s, p, o, score/(max_score*2)+0.5) for s, p, o, score in kg]
+    run(kg, save_name, epochs, embedding_method)
 
 
 def run_full_kg(epochs):
     kg = pd.read_csv('./kg/kg_chebi_CID.csv')
-    kg = list(zip(kg['s'], kg['p'], kg['o']))
+    kg['score'] = 1
+    kg = list(zip(kg['s'], kg['p'], kg['o'], kg['score']))
     kgmesh = pd.read_csv('./kg/kg_mesh_CID.csv')
-    kgmesh = list(zip(kgmesh['s'], kgmesh['p'], kgmesh['o']))
+    kgmesh['score'] = 1
+    kgmesh = list(zip(kgmesh['s'], kgmesh['p'], kgmesh['o'], kgmesh['score']))
     kg = kg + kgmesh
-    run(kg, "full_kg_v4", epochs)
+    run(kg, "full_kg_distmult_7", epochs, DistMult)
 
 
-def run_reduced_kg(epochs):
-    kg = pd.read_csv('./kg/reduced_kg.csv')
-    kg = list(zip(kg['s'], kg['p'], kg['o']))
-    run(kg, "reduced_kg", epochs)
+def run_only_scored_kg(epochs):
+    kg = pd.read_csv('./kg/sorted_kg.csv')
+    kg = list(zip(kg['s'], kg['p'], kg['o'], kg['score']))
+    kg = [(s, p, o) for s, p, o, score in kg if score > 0]
+    run(kg, "scored_kg", epochs, DistMult)
 
 
-def run_reduced_kg_3(epochs):
-    kg = pd.read_csv('./kg/reduced_kg_3.csv')
-    kg = list(zip(kg['s'], kg['p'], kg['o']))
-    kg1 = []
-    for i in range(6):
-        kg1 = kg1 + kg
-    run(kg1, "reduced_kg_V3_g6_3th", epochs)
+def run_only_cid_mapped_kg(epochs):
+    kg = pd.read_csv('./kg/only_cid_mapped_kg.csv')
+    kg['score'] = 1
+    kg = list(zip(kg['s'], kg['p'], kg['o'], kg['score']))
+    run(kg, "only_cid_mapped_distmult_7", epochs, DistMult)
 
 
-def run_neighbors(epochs):
-    kg = pd.read_csv('./kg/neighbors.csv')
-    kg = list(zip(kg['s'], kg['p'], kg['o']))
-    #kg1 = []
-    #for i in range(2):
-    #    kg1 = kg1 + kg
-    run(kg, "new_neighbors_v1", epochs)
-
-
-def run(kg, result_name, epochs):
-    entities = set([s for s, p, o in kg]) | set([o for s, p, o in kg])
-    relations = set([p for s, p, o in kg])
+def run(kg, result_name, epochs, embedding_method):
+    entities = set([s for s, p, o, score in kg]) | set([o for s, p, o, score in kg])
+    relations = set([p for s, p, o, score in kg])
 
     dftr = pd.read_csv('./data/LC50_train_CID.csv').dropna()
     dfte = pd.read_csv('./data/LC50_test_CID.csv').dropna()
@@ -265,11 +251,7 @@ def run(kg, result_name, epochs):
     Xte, yte = list(Xte), np.asarray(yte).reshape((-1, 1))
 
     # convert to binary
-    scaler = MinMaxScaler()
-    ytr = scaler.fit_transform(ytr)
-    yte = scaler.transform(yte)
-    ytr = np.abs(np.around(ytr - np.median(ytr) + 0.5) - 1)
-    yte = np.abs(np.around(yte - np.median(yte) + 0.5) - 1)
+    yte, ytr = convert_to_binary(yte, ytr)
 
     ytr = list(ytr.reshape((-1,)))
     yte = list(yte.reshape((-1,)))
@@ -281,7 +263,7 @@ def run(kg, result_name, epochs):
     mr = {e: i for i, e in enumerate(relations)}
 
     # mapping
-    true_kg = [(me[s], mr[p], me[o]) for s, p, o in kg]
+    true_kg = [(me[s], mr[p], me[o], score) for s, p, o, score in kg]
     Xtr = [me[s] for s in Xtr]
     Xte = [me[s] for s in Xte]
 
@@ -290,7 +272,7 @@ def run(kg, result_name, epochs):
     M = len(relations)
     ed = 128
 
-    kg_model = create_kg_model(N, M, ed, method=DistMult)
+    kg_model = create_kg_model(N, M, ed, method=embedding_method)
     on_model = create_on_model(N, ed)
 
     metrics = {'score': ['acc', precision, recall, f1]}  # ,'x':['mae','mse',r2_keras]}
@@ -306,7 +288,7 @@ def run(kg, result_name, epochs):
     on_model.compile(optimizer=Adam(lr=1e-3), metrics=metricsWithoutScore, loss={'x': 'binary_crossentropy'},
                      loss_weights={'x': 1})
     on_model.summary()
-    bs = 2**20 #1000 # 64 # 2**12 #2**20
+    bs = 2**20
 
     best_loss1 = np.Inf
     best_loss2 = np.Inf
@@ -398,20 +380,39 @@ def run(kg, result_name, epochs):
     e2 = on_model.evaluate(inputs[-1], outputs[-1], batch_size=bs)
 
     d = defaultdict(list)
+    y_pred_kg = kg_model.predict(inputs)[1].ravel()
+    fpr_kg, tpr_kg, thresholds_kg = roc_curve(outputs[-1], y_pred_kg)
+    auc_kg = auc(fpr_kg, tpr_kg)
 
+    y_pred_on = on_model.predict(inputs[-1]).ravel()
+    fpr_on, tpr_on, thresholds_on = roc_curve(outputs[-1], y_pred_on)
+    auc_on = auc(fpr_on, tpr_on)
+
+    d['KG fpr'].append(fpr_kg)
+    d['KG tpr'].append(tpr_kg)
+    d['KG auc'].append(auc_kg)
+    d['One-Hot fpr'].append(fpr_on)
+    d['One-Hot tpr'].append(tpr_on)
+    d['One-Hot auc'].append(auc_on)
     for n, v in zip(kg_model.metrics_names, e1):
         d['KG ' + n].append(v)
 
     for n, v in zip(on_model.metrics_names, e2):
         d['One-Hot ' + n].append(v)
-
     for k in d:
         print(k, d[k])
-
     tmp = list(np.unique(yte, return_counts=True)[-1] / len(yte))
     print('Prior', max(tmp))
-
     add_result(result_name, d)
+
+
+def convert_to_binary(yte, ytr):
+    scaler = MinMaxScaler()
+    ytr = scaler.fit_transform(ytr)
+    yte = scaler.transform(yte)
+    ytr = np.abs(np.around(ytr - np.median(ytr) + 0.5) - 1)
+    yte = np.abs(np.around(yte - np.median(yte) + 0.5) - 1)
+    return yte, ytr
 
 
 if __name__ == '__main__':
