@@ -3,8 +3,8 @@ from keras.constraints import MaxNorm
 from keras.layers import Embedding, Dropout, Lambda, Dense
 from keras.optimizers import Adam
 
-from scr.embedding import DistMult
-from scr.evaluation import precision, recall, f1
+from src.embedding import DistMult
+from src.evaluation import precision, recall, f1
 
 
 def create_models(M, N, embedding_method):

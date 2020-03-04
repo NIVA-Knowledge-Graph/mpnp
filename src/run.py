@@ -8,11 +8,11 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve
 from sklearn.metrics import auc
 
-from scr.models import create_models
-from scr.transformation import generate_negative, balance_inputs, map_entities_and_relations, \
+from src.models import create_models
+from src.transformation import generate_negative, balance_inputs, map_entities_and_relations, \
     contained_in_kg_filter, convert_to_binary
-from scr.embedding import DistMult
-from scr.file_management import add_result, read_train_and_test_data
+from src.embedding import DistMult
+from src.file_management import add_result, read_train_and_test_data
 
 
 def main():
