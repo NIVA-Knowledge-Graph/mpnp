@@ -1,3 +1,4 @@
+"""
 ## common
 import numpy as np
 
@@ -10,7 +11,7 @@ def prep(X,Y):
         Y_tr.append(y)
         X_tr_left.append(x1)
         X_tr_right.append(x2)
-        
+
     return np.asarray(X_tr_left).reshape((-1,1)),np.asarray(X_tr_right).reshape((-1,1)),np.asarray(Y_tr).reshape((-1,1))
 
 def read_data(filename):
@@ -27,4 +28,4 @@ def read_data(filename):
             out.append((o,p+'_reverse',s,score))
     return out
 
-
+"""
