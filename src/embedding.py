@@ -23,7 +23,7 @@ def HolE(s, p, o):
 def TransE(s, p, o):
     l = Lambda(lambda x: 1 / tf.norm(x[0] + x[1] - x[2], axis=-1))
     score = l([s, p, o])
-    score = Activation('sigmoid', name='score')(score)  # Activation('tanh', name='score')(score)
+    score = Activation('tanh', name='score')(score)
     return score
 
 

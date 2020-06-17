@@ -12,7 +12,7 @@ def create_models(M, N, embedding_method):
     ed = 128
     kg_model = create_kg_model(N, M, ed, method=embedding_method)
     on_model = create_on_model(N, ed)
-    metrics = {'score': ['acc', precision, recall, f1]}  # ,'x':['mae','mse',r2_keras]}
+    metrics = {'score': ['acc', precision, recall, f1]}
     metrics['x'] = metrics['score']
     metricsWithoutScore = {'x': ['acc', precision, recall, f1]}
     kg_model.compile(optimizer=Adam(lr=1e-3),
@@ -32,7 +32,8 @@ def create_kg_model(N, M, ed, dense_layers=(16, 16), method=DistMult):
     # kg model
     # embedding
     si, pi, oi = Input((1,)), Input((1,)), Input((1,))
-    e = Embedding(N, ed, name='entity_embedding', embeddings_constraint=MaxNorm(1, axis=1))#, embeddings_initializer=RandomUniform(-0.05, 0.05))
+    e = Embedding(N, ed, name='entity_embedding', embeddings_constraint=MaxNorm(1, axis=1))
+
     # Try to set the embeddings_initializer
     r = Embedding(M, ed, name='relation_embedding')
     s = Dropout(0.2)(e(si))

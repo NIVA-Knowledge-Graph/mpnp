@@ -15,7 +15,7 @@ def main():
 
 
 def orderbytouch():
-    #kg = pd.read_csv('../kg/sorted_kg_w_touched_two_Steps.csv')
+    #kg = pd.read_csv('../kg/two_step.csv')
     #kg = list(zip(kg['s'], kg['p'], kg['o'], kg['score'], kg['touched']))
     #g = kg['touched'].value_counts()
     #print_predicats_from_mesh()

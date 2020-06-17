@@ -18,84 +18,21 @@ from src.file_management import add_result, read_train_and_test_data
 
 def main():
     """ To group together similar runs, they should have the same prefix.
+    This is in order to run statistics
 
     The prefix should be on this form:
-    [name_of_the_method]_[avg_or_normalized_if_not_binary]_[embedding_method]_[uniq_run_id]
-    E.G. directed_one_step_back_avg_distmult_1
-
-    This way its easier to do statistics
+    [methodName]_[avg|normalized|binary]_[TransE|DistMult]_[runnid]
+    E.G. descendingInfluence_avg_DistMult_1
     """
 
-    #run_full_kg('7', TransE, epochs=100)
-
-
-    # files = ('./kg/sorted_kg_w_touched_two_Steps.csv',
-    #          './kg/sorted_kg_w_touched_directed_one_step_back.csv')
-    # names = ('two_step',
-    #          'directed_one_step_back')
-    # for file, name in zip(files, names):
-    #
-    #     for i in range(7):
-    #         print('run: ' + str(i) + ', savenameprefix: ' + name + ' filename' + file)
-    #         run_scored_kg_avg(file, 'es_' + name + '_avg_TransE_' + str(i), TransE)
-    #         run_scored_kg_normalized(file, 'es_' + name + '_normalized_TransE_' + str(i), TransE)
-    #         run_scored_kg_avg(file, 'es_' + name + '_avg_distmult_' + str(i), DistMult)
-    #         run_scored_kg_normalized(file, 'es_' + name + '_normalized_distmult_' + str(i), DistMult)
-
-    # es_two_step_normalized_TransE
-    # es_two_step_normalized_distmult
-    # es_two_step_avg_TransE
-    # es_two_step_avg_distmult
-
-    # es_directed_one_step_back_normalized_TransE
-    # es_directed_one_step_back_normalized_distmult
-    # es_directed_one_step_back_avg_TransE
-    # es_directed_one_step_back_avg_distmult
-
-
-    # es_descending_influence_normalized_TransE
-    # es_descending_influence_normalized_distmult
-    # es_descending_influence_avg_TransE
-    # es_descending_influence_avg_distmult
-
-    # decending influence - manual
-    # './kg/sorted_kg_w_touched_descending_influence.csv'
-    # 'descending_influence'
     for i in range(7):
-        print('run: ' + str(i) + ', savenameprefix: ' + 'descending_influence' + ' filename ' + './kg/sorted_kg_w_touched_descending_influence.csv')
-        run_scored_kg_normalized('./kg/sorted_kg_w_touched_descending_influence_avg.csv', 'es_' + 'descending_influence' + '_avg_TransE_' + str(i), TransE)
-        run_scored_kg_normalized('./kg/sorted_kg_w_touched_descending_influence.csv', 'es_' + 'descending_influence' + '_normalized_TransE_' + str(i), TransE)
-        run_scored_kg_normalized('./kg/sorted_kg_w_touched_descending_influence_avg.csv', 'es_' + 'descending_influence' + '_avg_distmult_' + str(i), DistMult)
-        run_scored_kg_normalized('./kg/sorted_kg_w_touched_descending_influence.csv', 'es_' + 'descending_influence' + '_normalized_distmult_' + str(i), DistMult)
+        run_scored_kg_normalized('./kg/descending_influence_avg.csv', 'es_' + 'descending_influence' + '_avg_TransE_' + str(i), TransE)
+        run_scored_kg_normalized('./kg/descending_influence.csv', 'es_' + 'descending_influence' + '_normalized_TransE_' + str(i), TransE)
+        run_scored_kg_normalized('./kg/descending_influence_avg.csv', 'es_' + 'descending_influence' + '_avg_distmult_' + str(i), DistMult)
+        run_scored_kg_normalized('./kg/descending_influence.csv', 'es_' + 'descending_influence' + '_normalized_distmult_' + str(i), DistMult)
     # --------------------------
 
-    # run_scored_kg_avg('./kg/sorted_kg_w_touched_two_Steps.csv', 'two_step_avg_TransE_7', TransE) # 4, 6! bad
-
-    # run_scored_kg_normalized('./kg/sorted_kg_w_touched_two_Steps.csv', 'two_step_normalized_TransE_7', TransE) # 2 bad, 3? 5 bad
-
-    # ---------------------------
-
-    # run_scored_kg_normalized('./kg/sorted_kg_w_touched_directed_one_step_back.csv',
-    #                         'directed_one_step_back_normalized_TransE_7',
-    #                         TransE)
-
-    # --directed_one_step_back_avg_TransE_2--
-
-    # run_scored_kg_avg('./kg/sorted_kg_w_touched_directed_one_step_back.csv',
-    #                  'directed_one_step_back_avg_TransE_7',
-    #                  TransE)
-
-    # -----------------
-
-    # run_scored_kg_normalized('./kg/sorted_kg_w_touched_descending_influence.csv',
-    #                         'descending_influence_normalized_TransE_7',
-    #                         TransE)
-
-    #run_scored_kg_normalized('./kg/sorted_kg_w_touched_descending_influence_avg.csv',
-    #                  'descending_influence_avg_TransE_7',
-    #                  TransE)
-
-    # -----------------
+    # run_scored_kg_avg('./kg/two_step.csv', 'two_step_avg_TransE_7', TransE) # 4, 6! bad
 
 
 def run_scored_kg_normalized(filename, save_name, embedding_method, epochs=100):
@@ -119,7 +56,6 @@ def run_scored_kg_avg(filename, save_name, embedding_method, epochs=100):
 
 def run_full_kg(run_id, embedding_method, epochs=100):
     """Runs with the whole KG with binary scores"""
-    # save_name = 'test_epoc_' + str(epochs) + '_full_kg_distmult_' + run_id
     embedding_str = 'unknown'
     if embedding_method == DistMult:
         embedding_str = 'distmult'
@@ -136,19 +72,10 @@ def run_full_kg(run_id, embedding_method, epochs=100):
     run(kg, save_name, epochs, DistMult)
 
 
-def run_only_scored_kg(run_id, epochs=100):
-    """Runs with only the scored triples with binary scores"""
-    save_name = 'scored_kg_distmult_' + run_id
-    kg = pd.read_csv('./kg/sorted_kg.csv')
-    kg = list(zip(kg['s'], kg['p'], kg['o'], kg['score']))
-    kg = [(s, p, o) for s, p, o, score in kg if score > 0]
-    run(kg, save_name, epochs, DistMult)
-
-
 def run_only_cid_mapped_kg(run_id, epochs=100):
     """Runs with only the cid mapped triples with binary scores"""
     save_name = 'es_only_cid_mapped_distmult_' + run_id
-    kg = pd.read_csv('./kg/only_cid_mapped_kg.csv')
+    kg = pd.read_csv('./kg/only_cid_mapped.csv')
     kg['score'] = 1
     kg = list(zip(kg['s'], kg['p'], kg['o'], kg['score']))
     run(kg, save_name, epochs, DistMult)
@@ -157,7 +84,7 @@ def run_only_cid_mapped_kg(run_id, epochs=100):
 def run_only_cid_mapped_kg_transe(run_id, epochs=100):
     """Runs with only the cid mapped triples with binary scores"""
     save_name = 'es_only_cid_mapped_TransE_' + run_id
-    kg = pd.read_csv('./kg/only_cid_mapped_kg.csv')
+    kg = pd.read_csv('./kg/only_cid_mapped.csv')
     kg['score'] = 1
     kg = list(zip(kg['s'], kg['p'], kg['o'], kg['score']))
     run(kg, save_name, epochs, TransE)
