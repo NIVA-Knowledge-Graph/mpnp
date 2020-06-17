@@ -2,6 +2,7 @@ import numpy as np
 
 from collections import defaultdict
 import pandas as pd
+from keras.callbacks import EarlyStopping
 from tqdm import tqdm
 
 import matplotlib.pyplot as plt
@@ -11,7 +12,7 @@ from sklearn.metrics import auc
 from src.models import create_models
 from src.transformation import generate_negative, balance_inputs, map_entities_and_relations, \
     contained_in_kg_filter, convert_to_binary
-from src.embedding import DistMult
+from src.embedding import DistMult, TransE
 from src.file_management import add_result, read_train_and_test_data
 
 
@@ -24,9 +25,77 @@ def main():
 
     This way its easier to do statistics
     """
-    run_full_kg('1')
+
+    #run_full_kg('7', TransE, epochs=100)
+
+
+    # files = ('./kg/sorted_kg_w_touched_two_Steps.csv',
+    #          './kg/sorted_kg_w_touched_directed_one_step_back.csv')
+    # names = ('two_step',
+    #          'directed_one_step_back')
+    # for file, name in zip(files, names):
+    #
+    #     for i in range(7):
+    #         print('run: ' + str(i) + ', savenameprefix: ' + name + ' filename' + file)
+    #         run_scored_kg_avg(file, 'es_' + name + '_avg_TransE_' + str(i), TransE)
+    #         run_scored_kg_normalized(file, 'es_' + name + '_normalized_TransE_' + str(i), TransE)
+    #         run_scored_kg_avg(file, 'es_' + name + '_avg_distmult_' + str(i), DistMult)
+    #         run_scored_kg_normalized(file, 'es_' + name + '_normalized_distmult_' + str(i), DistMult)
+
+    # es_two_step_normalized_TransE
+    # es_two_step_normalized_distmult
+    # es_two_step_avg_TransE
+    # es_two_step_avg_distmult
+
+    # es_directed_one_step_back_normalized_TransE
+    # es_directed_one_step_back_normalized_distmult
+    # es_directed_one_step_back_avg_TransE
+    # es_directed_one_step_back_avg_distmult
+
+
+    # es_descending_influence_normalized_TransE
+    # es_descending_influence_normalized_distmult
+    # es_descending_influence_avg_TransE
+    # es_descending_influence_avg_distmult
+
+    # decending influence - manual
+    # './kg/sorted_kg_w_touched_descending_influence.csv'
+    # 'descending_influence'
+    for i in range(7):
+        print('run: ' + str(i) + ', savenameprefix: ' + 'descending_influence' + ' filename ' + './kg/sorted_kg_w_touched_descending_influence.csv')
+        run_scored_kg_normalized('./kg/sorted_kg_w_touched_descending_influence_avg.csv', 'es_' + 'descending_influence' + '_avg_TransE_' + str(i), TransE)
+        run_scored_kg_normalized('./kg/sorted_kg_w_touched_descending_influence.csv', 'es_' + 'descending_influence' + '_normalized_TransE_' + str(i), TransE)
+        run_scored_kg_normalized('./kg/sorted_kg_w_touched_descending_influence_avg.csv', 'es_' + 'descending_influence' + '_avg_distmult_' + str(i), DistMult)
+        run_scored_kg_normalized('./kg/sorted_kg_w_touched_descending_influence.csv', 'es_' + 'descending_influence' + '_normalized_distmult_' + str(i), DistMult)
+    # --------------------------
+
+    # run_scored_kg_avg('./kg/sorted_kg_w_touched_two_Steps.csv', 'two_step_avg_TransE_7', TransE) # 4, 6! bad
+
+    # run_scored_kg_normalized('./kg/sorted_kg_w_touched_two_Steps.csv', 'two_step_normalized_TransE_7', TransE) # 2 bad, 3? 5 bad
+
+    # ---------------------------
+
+    # run_scored_kg_normalized('./kg/sorted_kg_w_touched_directed_one_step_back.csv',
+    #                         'directed_one_step_back_normalized_TransE_7',
+    #                         TransE)
+
+    # --directed_one_step_back_avg_TransE_2--
+
     # run_scored_kg_avg('./kg/sorted_kg_w_touched_directed_one_step_back.csv',
-    #                  'directed_one_step_back_avg_distmult_7', DistMult)
+    #                  'directed_one_step_back_avg_TransE_7',
+    #                  TransE)
+
+    # -----------------
+
+    # run_scored_kg_normalized('./kg/sorted_kg_w_touched_descending_influence.csv',
+    #                         'descending_influence_normalized_TransE_7',
+    #                         TransE)
+
+    #run_scored_kg_normalized('./kg/sorted_kg_w_touched_descending_influence_avg.csv',
+    #                  'descending_influence_avg_TransE_7',
+    #                  TransE)
+
+    # -----------------
 
 
 def run_scored_kg_normalized(filename, save_name, embedding_method, epochs=100):
@@ -48,9 +117,15 @@ def run_scored_kg_avg(filename, save_name, embedding_method, epochs=100):
     run(kg, save_name, epochs, embedding_method)
 
 
-def run_full_kg(run_id, epochs=100):
+def run_full_kg(run_id, embedding_method, epochs=100):
     """Runs with the whole KG with binary scores"""
-    save_name = 'full_kg_distmult_' + run_id
+    # save_name = 'test_epoc_' + str(epochs) + '_full_kg_distmult_' + run_id
+    embedding_str = 'unknown'
+    if embedding_method == DistMult:
+        embedding_str = 'distmult'
+    elif embedding_method == TransE:
+        embedding_str = 'TransE'
+    save_name = 'es_full_kg_' + embedding_str + '_' + run_id
     kg = pd.read_csv('./kg/kg_chebi_CID.csv')
     kg['score'] = 1
     kg = list(zip(kg['s'], kg['p'], kg['o'], kg['score']))
@@ -72,11 +147,20 @@ def run_only_scored_kg(run_id, epochs=100):
 
 def run_only_cid_mapped_kg(run_id, epochs=100):
     """Runs with only the cid mapped triples with binary scores"""
-    save_name = 'only_cid_mapped_distmult_' + run_id
+    save_name = 'es_only_cid_mapped_distmult_' + run_id
     kg = pd.read_csv('./kg/only_cid_mapped_kg.csv')
     kg['score'] = 1
     kg = list(zip(kg['s'], kg['p'], kg['o'], kg['score']))
     run(kg, save_name, epochs, DistMult)
+
+
+def run_only_cid_mapped_kg_transe(run_id, epochs=100):
+    """Runs with only the cid mapped triples with binary scores"""
+    save_name = 'es_only_cid_mapped_TransE_' + run_id
+    kg = pd.read_csv('./kg/only_cid_mapped_kg.csv')
+    kg['score'] = 1
+    kg = list(zip(kg['s'], kg['p'], kg['o'], kg['score']))
+    run(kg, save_name, epochs, TransE)
 
 
 def run(kg, result_name, epochs, embedding_method):
@@ -101,8 +185,8 @@ def run(kg, result_name, epochs, embedding_method):
 
     bs = 2 ** 20
 
-    best_loss1 = np.Inf
-    best_loss2 = np.Inf
+    best_loss1 = 0 #np.Inf
+    best_loss2 = 0 #np.Inf
 
     # stop training params
     patience = 5
@@ -146,17 +230,17 @@ def run(kg, result_name, epochs, embedding_method):
                 epochs=1, batch_size=bs, verbose=1)
             loss2 = l2.history['loss'][-1]
 
-        if loss1 - patience_delta >= best_loss1:
+        if loss1 <= best_loss1 - patience_delta:
             p1 -= 1
 
-        if loss2 - patience_delta >= best_loss2:
+        if loss2 <= best_loss2 - patience_delta:
             p2 -= 1
 
-        if loss1 < best_loss1:
+        if loss1 > best_loss1:
             best_loss1 = loss1
             p1 = patience
 
-        if loss2 < best_loss2:
+        if loss2 > best_loss2:
             best_loss2 = loss2
             p2 = patience
 

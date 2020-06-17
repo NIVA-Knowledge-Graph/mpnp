@@ -70,6 +70,36 @@ def contained_in_kg_filter(Xte, Xtr, yte, ytr, entities):
 def convert_to_binary(yte, ytr):
     """devides the dataset on the median
     and gives it a binary value based on with pole its in"""
+    cyte = yte
+    cytr = ytr
+
+    sss1 = np.median(cyte)
+    sss2 = np.median(cytr)
+
+    scaler = MinMaxScaler()
+    ytr = scaler.fit_transform(ytr)
+    yte = scaler.transform(yte)
+
+    s1 = np.median(ytr)
+    s2 = ytr - s1 + 0.5
+    s3 = np.around(s2)
+    s4 = np.abs(s3 -1)
+
+    ss1 = np.median(yte)
+    ss2 = ytr - s1 + 0.5
+    ss3 = np.around(s2)
+    ss4 = np.abs(s3 -1)
+
+    ytr = np.abs(np.around(ytr - np.median(ytr) + 0.5) - 1)
+    yte = np.abs(np.around(yte - np.median(yte) + 0.5) - 1)
+    ytr = list(ytr.reshape((-1,)))
+    yte = list(yte.reshape((-1,)))
+    return yte, ytr
+
+
+def convert_to_binary_old(yte, ytr):
+    """devides the dataset on the median
+    and gives it a binary value based on with pole its in"""
     scaler = MinMaxScaler()
     ytr = scaler.fit_transform(ytr)
     yte = scaler.transform(yte)

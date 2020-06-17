@@ -90,5 +90,6 @@ def find_neighbors_non_recursive(kg, to_be_explored):
 
     return connected_by_objects + connected_by_subject
 
+
 if __name__ == '__main__':
     main()
