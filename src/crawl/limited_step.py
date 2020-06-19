@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 
+# TODO: seperate the different Limited step crawls
 
 def main():
     create_data_structure()
@@ -24,7 +25,7 @@ def create_data_structure():
     ytr = ytr - median
     counter = 0
     for chemical, score in zip(xtr, ytr):
-        print("progress: " + str(round((counter/len(xtr)*100),2)) + "%")
+        print("progress: " + str(round((counter/len(xtr)*100), 2)) + "%")
         counter += 1
         neighbors = find_neighbors_and_reset(kg, {chemical})
         for neighbor in neighbors:

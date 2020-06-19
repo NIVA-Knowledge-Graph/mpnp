@@ -1,51 +1,54 @@
 import pandas as pd
 import numpy as np
 
+import src.crawl.directed as drc
+import src.crawl.descending_influence as dic
+
 
 def main():
-    create_data_structure()
+    # crawl_and_score(basic_crawl, basic_score, 'basic_scoring-algorithm')
+    # crawl_and_score(drc.directed_crawl, basic_score, '')
+    # crawl_and_score(basic_crawl, dic.descending_influence_score, 'descending_influence')
+    crawl_and_score(basic_crawl, dic.descending_influence_avg_score, 'descending_influence_avg')
 
 
-def create_data_structure():
-    kg = pd.read_csv('./kg/kg_chebi_CID.csv')
+def crawl_and_score(crawl, score, filename):
+    kg = pd.read_csv('kg/kg_chebi_CID.csv')
     kg = list(zip(kg['s'], kg['p'], kg['o']))
-    kgmesh = pd.read_csv('./kg/kg_mesh_CID.csv')
+    kgmesh = pd.read_csv('kg/kg_mesh_CID.csv')
     kgmesh = list(zip(kgmesh['s'], kgmesh['p'], kgmesh['o']))
     kg = kg + kgmesh
-
-    listOfv = [{'score': [], 'weight': [], 'touched': 0.0}] * len(kg)
-    kg_dict = dict(zip(kg, listOfv))
 
     dftr = pd.read_csv('./data/LC50_train_CID.csv').dropna()
     xtr, ytr = list(dftr['cid']), list(dftr['y'])
     xtr, ytr = list(xtr), np.asarray(ytr).reshape((-1, 1))
     median = np.median(ytr)
-
     ytr = ytr - median
+
+    kg_dict = score(crawl, kg, xtr, ytr)
+
+    kg_dict = sorted(kg_dict.items(), key=lambda x: x[1]['score'], reverse=True)
+    kg_dict = [(sublist[0], sublist[1], sublist[2], v['score'], v['touched']) for sublist, v in kg_dict]
+    kg = pd.DataFrame(kg_dict, columns=['s', 'p', 'o', 'score', 'touched'])
+    kg.to_csv('kg/processed/' + filename + '.csv')
+
+
+def basic_score(crawl, kg, xtr, ytr):
+    listOfv = [{'score': 0.0, 'touched': 0.0} for _ in range(len(kg))]
+    kg_dict = dict(zip(kg, listOfv))
     counter = 0
     for chemical, score in zip(xtr, ytr):
         print("progress: " + str(round((counter / len(xtr) * 100), 2)) + "%")
         counter += 1
-        neighbors = find_neighbors_and_reset(kg, {chemical})
-        pass
-        triples = [(s, p, o) for s, p, o, step in neighbors]
-        steps = [step for s, p, o, step in neighbors]
-        for triple, step in zip(triples, steps):
-            kg_dict[triple] = {'score': kg_dict[triple]['score'] + [score[0]],
-                               'weight': kg_dict[triple]['weight'] + [1/step if step else 0],
-                               'touched': kg_dict[triple]['touched'] + 1}
-
-    kg_dict = {k: {'score': np.abs(np.average(v['score'], weights=v['weight'])) if v['score'] else 0, 'touched': v['touched']} for k, v in kg_dict.items()}
-    kg_dict = sorted(kg_dict.items(), key=lambda x: x[1]['score'], reverse=True)
-    kg_dict = [(sublist[0], sublist[1], sublist[2], v['score'], v['touched']) for sublist, v in kg_dict]
-    kg = pd.DataFrame(kg_dict, columns=['s', 'p', 'o', 'score', 'touched'])
-    kg.to_csv('processed/descending_influence_avg.csv')
+        neighbors = crawl(kg, {chemical})
+        for neighbor in neighbors:
+            kg_dict[neighbor] = {'score': kg_dict[neighbor]['score'] + score[0],
+                                 'touched': kg_dict[neighbor]['touched'] + 1}
+    kg_dict = {k: {'score': np.abs(v['score']), 'touched': v['touched']} for k, v in kg_dict.items()}
+    return kg_dict
 
 
-explored = set([])
-
-
-def find_neighbors_and_reset(kg, to_be_explored):
+def basic_crawl(kg, to_be_explored):
     pass
     global explored
     explored = set([])
