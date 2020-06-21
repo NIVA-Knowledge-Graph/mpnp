@@ -55,9 +55,7 @@ def __find_neighbors_non_recursive(kg, to_be_explored):
         return []
     explored = explored | to_be_explored
     connected_by_objects = [(s, p, o) for s, p, o in kg if o in to_be_explored]
-
     connected_by_subject = [(s, p, o) for s, p, o in kg if s in to_be_explored]
-
     return connected_by_objects + connected_by_subject
 
 
