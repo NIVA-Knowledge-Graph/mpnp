@@ -4,6 +4,7 @@ import pandas as pd
 from pubchempy import get_compounds
 from re import search
 
+
 def save_obj(obj, name):
     with open('obj/' + name + '.pkl', 'wb') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
@@ -36,8 +37,8 @@ def create_dict():
         mapping = load_obj("inchikey2cid")
     except:
         pass
-    test = pd.read_csv('./data/LC50_test.csv')
-    train = pd.read_csv('./data/LC50_train.csv')
+    test = pd.read_csv('../data/LC50_test.csv')
+    train = pd.read_csv('../data/LC50_train.csv')
     test = test['inchikey'].tolist()
     train = train['inchikey'].tolist()
     ids = set(train) | set(test)
@@ -51,12 +52,9 @@ def create_dict_kg():
         mapping = load_obj("inchikey2cid")
     except:
         pass
-    kg = pd.read_csv('./kg/kg_mesh.csv')
-    # kg = pd.read_csv('./kg/kg_chebi.csv')
+    kg = pd.read_csv('../kg/kg_mesh.csv')
     kg = list(zip(kg['s'], kg['p'], kg['o']))
     kg = [s for s, p, o, in kg if not search('http://', s)]
-    # kg = kg[:500]
-    # kg = [s for s, p, o, in kg if p == 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type']
     ids = set(s for s in kg)
 
     inchikey2cid(ids, mapping)
@@ -65,8 +63,8 @@ def create_dict_kg():
 
 def convert_csv():
     prefix = 'http://rdf.ncbi.nlm.nih.gov/pubchem/compound/CID'
-    test = pd.read_csv('./data/LC50_test.csv')
-    train = pd.read_csv('./data/LC50_train.csv')
+    test = pd.read_csv('../data/LC50_test.csv')
+    train = pd.read_csv('../data/LC50_train.csv')
     mapping = load_obj("inchikey2cid")
     for i, row in test.iterrows():
         test.loc[i, 'inchikey'] = prefix + str(mapping[test.loc[i, 'inchikey']])
@@ -80,25 +78,17 @@ def convert_csv():
 
 def convert_csv_kg():
     prefix = 'http://rdf.ncbi.nlm.nih.gov/pubchem/compound/CID'
-    kg = pd.read_csv('./kg/kg_mesh.csv')
+    kg = pd.read_csv('../kg/kg_mesh.csv')
     mapping = load_obj("inchikey2cid")
     for i, row in kg.iterrows():
-        if not search('http://', kg.loc[i, 's']): # if kg.loc[i, 'p'] == 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type':
+        if not search('http://', kg.loc[i, 's']):
             kg.loc[i, 's'] = prefix + str(mapping[kg.loc[i, 's']])
     kg.drop(kg.columns[0], axis=1, inplace=True)
     kg.to_csv('kg/kg_mesh_CID.csv')
 
 
-    # kg = [s for s, p, o, in kg if not search('http://', s)]
-
 def main():
-    # create_dict()
-    # create_dict_kg()
-    # convert_csv()
-    # convert_csv_kg()
-
     convert_csv_kg()
-    #create_dict_kg()
 
 
 if __name__ == '__main__':

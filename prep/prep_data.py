@@ -63,10 +63,7 @@ for use_mesh, filename in zip([True, False], ['_mesh.csv', '_chebi.csv']):
     kg = chemistry.get_subgraph(all_chemicals, from_='cas', to_='inchikey', use_mesh=use_mesh)
 
     s, p, o = zip(*list(kg))
-    data = {}
-    data['s'] = s
-    data['p'] = p
-    data['o'] = o
+    data = {'s': s, 'p': p, 'o': o}
 
     df = pd.DataFrame(data=data)
     df.to_csv('kg/kg' + filename)

@@ -12,8 +12,6 @@ def circular_cross_correlation(x, y):
 
 
 def HolE(s, p, o):
-    # sigm(p^T (s \star o))
-    # dot product in tf: sum(multiply(a, b) axis = 1)
     l = Lambda(lambda x: tf.reduce_sum(tf.multiply(x[1], circular_cross_correlation(x[0], x[2])), axis=-1))
     score = l([s, p, o])
     score = Activation('sigmoid', name='score')(score)

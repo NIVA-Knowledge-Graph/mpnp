@@ -5,25 +5,13 @@ import collections
 
 
 def main():
-    #create_reduced_kg()
-    #insdlval()
-    #orderbytouch()
-    #print_graph_stat()
-    #find_duplicates()
-    shared_elements()
+    print_average_consentration()
+    count_shared_elements()
+    print_graph_stat()
+    count_duplicates()
 
 
-
-def orderbytouch():
-    #kg = pd.read_csv('../kg/two_step.csv')
-    #kg = list(zip(kg['s'], kg['p'], kg['o'], kg['score'], kg['touched']))
-    #g = kg['touched'].value_counts()
-    #print_predicats_from_mesh()
-
-    pass
-
-
-def insdlval():
+def print_average_consentration():
     kg = pd.read_csv('../kg/kg_chebi_CID.csv')
     kg = list(zip(kg['s'], kg['p'], kg['o']))
     kg = [(s, p, o) for s, p, o, in kg if p != 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type']
@@ -32,11 +20,9 @@ def insdlval():
     kgmesh = list(zip(kgmesh['s'], kgmesh['p'], kgmesh['o']))
     kgmesh = [(s, p, o) for s, p, o, in kgmesh if s.startswith('http://rdf.ncbi.nlm.nih.gov/pubchem/compound/CID')]
     kg = kg + kgmesh
-    #kg = kgmesh
 
     s = [s for s, p, o, in kg if s.startswith('http://rdf.ncbi.nlm.nih.gov/pubchem/compound/CID') and o == 'http://id.nlm.nih.gov/mesh/2019/D007306']
     o = [o for s, p, o, in kg if o.startswith('http://rdf.ncbi.nlm.nih.gov/pubchem/compound/CID') and s == 'http://id.nlm.nih.gov/mesh/2019/D007306']
-    #http://id.nlm.nih.gov/mesh/2019/D007306
     e = s + o
 
     dftr = pd.read_csv('../data/LC50_train_CID.csv').dropna()
@@ -46,12 +32,11 @@ def insdlval():
 
     all = dftr + dfte
 
-
     allinsd = [y for c, y in all if c in e]
     all = [y for c, y in all]
 
-    print(np.average(all))
-    print(np.average(allinsd))
+    print('Average of all the chemicals: ' + str(np.average(all)))
+    print('Average of chemicals in the KG: ' + str(np.average(allinsd)))
 
 
 def print_predicats_from_mesh():
@@ -83,9 +68,8 @@ def print_graph_stat():
 
     kgmesh = pd.read_csv('../kg/kg_mesh_CID.csv')
     kgmesh = list(zip(kgmesh['s'], kgmesh['p'], kgmesh['o']))
-    #kgmesh = [(s, p, o) for s, p, o, in kgmesh if s.startswith('http://rdf.ncbi.nlm.nih.gov/pubchem/compound/CID')]
+    # kgmesh = [(s, p, o) for s, p, o, in kgmesh if s.startswith('http://rdf.ncbi.nlm.nih.gov/pubchem/compound/CID')]
     kg = kg + kgmesh
-    #kg = kgmesh
 
     s = [s for s, p, o in kg]
     o = [o for s, p, o in kg]
@@ -106,7 +90,7 @@ def print_graph_stat():
     print("len sub:" + str(len(subjects)) + " len object: " + str(len(objects)))
 
 
-def find_duplicates():
+def count_duplicates():
     kg = pd.read_csv('../kg/kg_chebi_CID.csv')
     kg = list(zip(kg['s'], kg['p'], kg['o']))
     kg = [(s, p, o) for s, p, o, in kg if p != 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type']
@@ -115,7 +99,6 @@ def find_duplicates():
     kgmesh = list(zip(kgmesh['s'], kgmesh['p'], kgmesh['o']))
     kgmesh = [(s, p, o) for s, p, o, in kgmesh if s.startswith('http://rdf.ncbi.nlm.nih.gov/pubchem/compound/CID')]
     kg = kg + kgmesh
-    #kg = kgmesh
 
     s = [s for s, p, o in kg]
     o = [o for s, p, o in kg]
@@ -156,25 +139,16 @@ def find_duplicates():
     print("duplicates in subjects and in test and train: " + str(len(subjects_and_data_and_dup)))
     print("duplicates in objects and in test and train: " + str(len(objects_and_data_and_dup)))
 
-    pass
 
-    # sduplicates =
-    # oduplicates =
-
-    # print("duplicates in subjects: " + str(len(sduplicates)))
-    # print("duplicates in objects: " + str(len(oduplicates)))
-
-
-def shared_elements():
+def count_shared_elements():
     kg = pd.read_csv('../kg/kg_chebi_CID.csv')
     kg = list(zip(kg['s'], kg['p'], kg['o']))
     kg = [(s, p, o) for s, p, o, in kg if p != 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type']
 
     kgmesh = pd.read_csv('../kg/kg_mesh_CID.csv')
     kgmesh = list(zip(kgmesh['s'], kgmesh['p'], kgmesh['o']))
-    #kgmesh = [(s, p, o) for s, p, o, in kgmesh if s.startswith('http://rdf.ncbi.nlm.nih.gov/pubchem/compound/CID')]
+    # kgmesh = [(s, p, o) for s, p, o, in kgmesh if s.startswith('http://rdf.ncbi.nlm.nih.gov/pubchem/compound/CID')]
     kg = kg + kgmesh
-    #kg = kgmesh
 
     s = [s for s, p, o in kg]
     o = [o for s, p, o in kg]
@@ -194,7 +168,6 @@ def shared_elements():
     subjects_and_data = subjects & data
     objects_and_data = objects & data
 
-
     leaf = objects - subjects
     roots = subjects - objects
     others = objects & subjects
@@ -203,67 +176,11 @@ def shared_elements():
     others_and_data = others & data
     leaf_and_data = leaf & data
 
-
-    print("Number of elements in both data and subjects of knowledge Graph: " + str(len(subjects_and_data)))
-    print("Number of elements in both data and objects of knowledge Graph: " + str(len(objects_and_data)))
-
-    print("Number of elements in both data and roots of knowledge Graph: " + str(len(roots_and_data)))
-    print("Number of elements in both data and internal of knowledge Graph: " + str(len(others_and_data)))
-    print("Number of elements in both data and leaf of knowledge Graph: " + str(len(leaf_and_data)))
-    pass
-
-
-def corr_chebi_mesh():
-    kg = pd.read_csv('../kg/kg_chebi_CID.csv')
-    kg = list(zip(kg['s'], kg['p'], kg['o']))
-    kg = [(s, p, o) for s, p, o, in kg if p != 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type']
-
-    kgmesh = pd.read_csv('../kg/kg_mesh_CID.csv')
-    kgmesh = list(zip(kgmesh['s'], kgmesh['p'], kgmesh['o']))
-    kgmesh = [(s, p, o) for s, p, o, in kgmesh if s.startswith('http://rdf.ncbi.nlm.nih.gov/pubchem/compound/CID')]
-
-
-def create_reduced_kg():
-
-    kg = pd.read_csv('./kg/kg_chebi_CID.csv')
-    kg = list(zip(kg['s'], kg['p'], kg['o']))
-    kg = [(s, p, o) for s, p, o, in kg if p != 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type']
-
-    kgmesh = pd.read_csv('./kg/kg_mesh_CID.csv')
-    kgmesh = list(zip(kgmesh['s'], kgmesh['p'], kgmesh['o']))
-    kgmesh = [(s, p, o) for s, p, o, in kgmesh if s.startswith('http://rdf.ncbi.nlm.nih.gov/pubchem/compound/CID')]
-    kg = kg + kgmesh
-
-    s = [s for s, p, o in kg]
-    o = [o for s, p, o in kg]
-
-    dftr = pd.read_csv('./data/LC50_train_CID.csv').dropna()
-    dftr = list(zip(dftr['cid'], dftr['y']))
-    dfte = pd.read_csv('./data/LC50_test_CID.csv').dropna()
-    dfte = list(zip(dfte['cid'], dfte['y']))
-
-    train = [cid for cid, y in dftr]
-    test = [cid for cid, y in dfte]
-
-    subjects = set([s for s, p, o in kg])
-    objects = set([o for s, p, o in kg])
-    data = set(train) | set(test)
-
-    subjects_and_data = subjects & data
-
-    objects_and_data = objects & data
-
-    kg = [(s, p, o) for s, p, o, in kg if s in subjects_and_data or o in objects_and_data]
-
-
-    kg = set(kg)
-
-    print(kg)
-    print(str(len(kg)))
-
-    kg = pd.DataFrame(list(kg), columns=['s', 'p', 'o'])
-
-    kg.to_csv('kg/reduced_kg.csv')
+    print("Number of elements in both data and subjects of KG: " + str(len(subjects_and_data)))
+    print("Number of elements in both data and objects of KG: " + str(len(objects_and_data)))
+    print("Number of elements in both data and roots of KG: " + str(len(roots_and_data)))
+    print("Number of elements in both data and internal of KG: " + str(len(others_and_data)))
+    print("Number of elements in both data and leaf of KG: " + str(len(leaf_and_data)))
 
 
 def compare_train_test():
@@ -275,8 +192,8 @@ def compare_train_test():
     train = set([cid for cid, y in dftr])
     test = set([cid for cid, y in dfte])
 
-    print("in test: " + str(len(test)))
-    print("in test but not in train " + str(len(test - train)))
+    print("In test: " + str(len(test)))
+    print("In test but not in train " + str(len(test - train)))
 
 
 if __name__ == '__main__':

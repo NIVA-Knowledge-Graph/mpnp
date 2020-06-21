@@ -22,7 +22,7 @@ def print_graph_stat(filename):
           + ", others: " + str(len(others))
           + ". In total: " + str(len(entities)))
 
-    print("len sub:" + str(len(subjects)) + " len object: " + str(len(objects)))
+    print("LEN(subjects):" + str(len(subjects)) + " LEN(objects): " + str(len(objects)))
 
 
 def find_duplicates(filename):
@@ -36,8 +36,8 @@ def find_duplicates(filename):
     sduplicates = [item for item, count in collections.Counter(s).items() if count > 1]
     oduplicates = [item for item, count in collections.Counter(o).items() if count > 1]
 
-    print("duplicates of subjects: " + str(len(sduplicates)))
-    print("duplicates of objects: " + str(len(oduplicates)))
+    print("Duplicates of subjects: " + str(len(sduplicates)))
+    print("Duplicates of objects: " + str(len(oduplicates)))
 
 
 def main():

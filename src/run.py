@@ -21,18 +21,16 @@ def main():
     This is in order to run statistics
 
     The prefix should be on this form:
-    [methodName]_[avg|normalized|binary]_[TransE|DistMult]_[runnid]
+    [es_][methodName]_[avg|normalized|binary]_[TransE|DistMult]_[runnid]
     E.G. descendingInfluence_avg_DistMult_1
+    es_ is indicating that early stopping is used.
     """
 
     for i in range(7):
-        run_scored_kg_normalized('./kg/descending_influence_avg.csv', 'es_' + 'descending_influence' + '_avg_TransE_' + str(i), TransE)
-        run_scored_kg_normalized('./kg/descending_influence.csv', 'es_' + 'descending_influence' + '_normalized_TransE_' + str(i), TransE)
-        run_scored_kg_normalized('./kg/descending_influence_avg.csv', 'es_' + 'descending_influence' + '_avg_distmult_' + str(i), DistMult)
-        run_scored_kg_normalized('./kg/descending_influence.csv', 'es_' + 'descending_influence' + '_normalized_distmult_' + str(i), DistMult)
-    # --------------------------
-
-    # run_scored_kg_avg('./kg/two_step.csv', 'two_step_avg_TransE_7', TransE) # 4, 6! bad
+        run_scored_kg_normalized('./kg/processed/descending_influence_avg.csv', 'es_' + 'descending_influence' + '_avg_TransE_' + str(i), TransE)
+        run_scored_kg_normalized('./kg/processed/descending_influence.csv', 'es_' + 'descending_influence' + '_normalized_TransE_' + str(i), TransE)
+        run_scored_kg_normalized('./kg/processed/descending_influence_avg.csv', 'es_' + 'descending_influence' + '_avg_distmult_' + str(i), DistMult)
+        run_scored_kg_normalized('./kg/processed/descending_influence.csv', 'es_' + 'descending_influence' + '_normalized_distmult_' + str(i), DistMult)
 
 
 def run_scored_kg_normalized(filename, save_name, embedding_method, epochs=100):
@@ -112,8 +110,8 @@ def run(kg, result_name, epochs, embedding_method):
 
     bs = 2 ** 20
 
-    best_loss1 = 0 #np.Inf
-    best_loss2 = 0 #np.Inf
+    best_loss1 = 0
+    best_loss2 = 0
 
     # stop training params
     patience = 5
