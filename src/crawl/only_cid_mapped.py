@@ -2,10 +2,10 @@ import pandas as pd
 
 
 def main():
-    only_cid_mapped()
+    create_file()
 
 
-def only_cid_mapped():
+def create_file():
     kg = pd.read_csv('./kg/kg_chebi_CID.csv')
     kg = list(zip(kg['s'], kg['p'], kg['o']))
     kgmesh = pd.read_csv('./kg/kg_mesh_CID.csv')
