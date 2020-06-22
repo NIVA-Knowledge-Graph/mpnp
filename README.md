@@ -5,7 +5,7 @@
 conda create --name myenv --file spec-file.txt
 
 # Directory Structure
-TCE: Triple Contex Embedding in Python (under development).
+TCE: Triple Context Embedding in Python (under development).
 
 data: Contains the training data.
 
@@ -19,7 +19,7 @@ obj: Contains a binary file used for cache when mapping to CID.
 
 plots: Tools for plotting and printing the results.
 
-prep: Tools for downloading and and prossess KGs, test and train data.
+prep: Tools for downloading and and processing KGs, test and train data.
 
 results: Binary file containing a dictionary with the results from the runs.
 
